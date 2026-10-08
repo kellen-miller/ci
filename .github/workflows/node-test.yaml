@@ -1,0 +1,96 @@
+name: Node Test
+'on':
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory containing package.json and the lockfile.
+        type: string
+        default: .
+      package-manager:
+        description: Package manager to use (pnpm|npm|yarn|bun). Auto-detected from the lockfile when empty.
+        type: string
+        default: ''
+      node-version:
+        description: Node.js version. Empty selects from .nvmrc, package.json engines, or setup-node's default.
+        type: string
+        default: ''
+      pnpm-version:
+        description: pnpm version. Empty lets pnpm/action-setup read the packageManager field in package.json.
+        type: string
+        default: ''
+      bun-version:
+        description: bun version. Empty installs the latest.
+        type: string
+        default: ''
+      install-args:
+        description: Extra arguments appended to the install command.
+        type: string
+        default: ''
+      test-script:
+        description: Script name to run (invoked as '<pm> run <script>').
+        type: string
+        default: test
+      install-playwright:
+        description: Install Playwright browsers before running tests.
+        type: boolean
+        default: false
+      playwright-browsers:
+        description: Browsers to install (space-separated, e.g. 'chromium firefox webkit'). Empty installs all.
+        type: string
+        default: ''
+      playwright-version:
+        description: Browser cache version; empty reads the installed Playwright version
+        type: string
+        default: ''
+      artifact-name:
+        description: Name for the uploaded artifact. Leave empty to skip upload.
+        type: string
+        default: ''
+      artifact-path:
+        description: Path(s) to upload as artifact (relative to repo root). Empty skips upload.
+        type: string
+        default: ''
+      artifact-retention-days:
+        description: Retention days for uploaded artifacts.
+        type: number
+        default: 30
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Node Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: kellen-miller/ci/.github/actions/setup-node@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          package-manager: ${{ inputs.package-manager }}
+          node-version: ${{ inputs.node-version }}
+          pnpm-version: ${{ inputs.pnpm-version }}
+          bun-version: ${{ inputs.bun-version }}
+          install-args: ${{ inputs.install-args }}
+      - name: Setup Playwright
+        if: inputs.install-playwright
+        uses: kellen-miller/ci/.github/actions/playwright-setup@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          browsers: ${{ inputs.playwright-browsers }}
+          version: ${{ inputs.playwright-version }}
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          PM: ${{ steps.setup.outputs.package-manager }}
+          SCRIPT: ${{ inputs.test-script }}
+        run: |
+          "$PM" run "$SCRIPT"
+      - name: Upload artifact
+        if: ${{ !cancelled() && inputs.artifact-name != '' && inputs.artifact-path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.artifact-path }}
+          retention-days: ${{ inputs.artifact-retention-days }}

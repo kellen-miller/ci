@@ -1,0 +1,87 @@
+name: Terraform Plan
+'on':
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing the Terraform root module (e.g. terraform/environments/dev)
+        required: true
+        type: string
+      env-name:
+        description: Logical environment name used in the PR comment heading
+        required: false
+        type: string
+        default: default
+      project-id:
+        description: GCP project ID (passed to google-github-actions/auth)
+        required: true
+        type: string
+      terraform-version:
+        description: Terraform version. Set to a specific version (e.g. 1.9.8) to pin; defaults to the latest stable
+          release.
+        required: false
+        type: string
+        default: latest
+      fmt-check-directory:
+        description: Directory to recursively fmt-check. Defaults to the whole repo.
+        required: false
+        type: string
+        default: .
+      environment:
+        description: Optional GitHub environment that gates infrastructure access
+        type: string
+        default: ''
+    secrets:
+      WORKLOAD_IDENTITY_PROVIDER:
+        required: true
+      WIF_SERVICE_ACCOUNT:
+        required: true
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+jobs:
+  plan:
+    name: Terraform Plan (${{ inputs.env-name }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          project_id: ${{ inputs.project-id }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+      - name: Terraform fmt check
+        working-directory: ${{ inputs.fmt-check-directory }}
+        run: terraform fmt -check -recursive
+      - name: Terraform init
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform init
+      - name: Terraform validate
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform validate -no-color
+      - name: Terraform plan
+        id: plan
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform plan -no-color -out=tfplan
+        continue-on-error: true
+      - name: Render plan to text
+        if: steps.plan.outcome == 'success'
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform show -no-color tfplan > plan.txt
+      - name: Comment PR with plan
+        if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
+        uses: kellen-miller/ci/.github/actions/terraform-plan-comment@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          env-name: ${{ inputs.env-name }}
+      - name: Fail if plan errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+    environment: ${{ inputs.environment }}

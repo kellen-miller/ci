@@ -2,49 +2,55 @@
 
 Reusable GitHub Actions workflows and composite actions, licensed under MIT.
 
-Each consumer owns its lint configuration, dependencies and PR triggers. Checks
-fail on findings and scan all relevant files, including existing issues. Generic
-code checks need only `contents: read`; PR-title validation also needs
-`pull-requests: read`. Dependencies come from public registries and repositories;
-no package-authentication setup, custom secret or cloud identity is required.
+Each consumer owns its configuration, public dependencies, triggers and permissions.
+Build/test/lint jobs need no private-package authentication. Publishing and deployment
+use the caller's registry credentials or cloud OIDC trust. Release and maintenance
+actions accept explicitly supplied GitHub tokens. No organization identity is embedded.
 
 This repository is prepared locally for `kellen-miller/ci`. It has no remote and
 has not been published. Cross-repository examples become usable after publication.
 
 ## Workflows
 
-| Workflow | Checks and configuration |
+| Workflow | Operations |
 | --- | --- |
-| `docker-lint.yaml` | Hadolint; repository `.hadolint.yaml` |
-| `gh-actions-lint.yaml` | actionlint and structured workflow security checks |
-| `go-lint.yaml` | golangci-lint, format check and govulncheck; repository Go config |
-| `helm-lint.yaml` | Helm lint/render, optional kubeconform and Trivy |
-| `node-lint.yaml` | Frozen package install, configurable `check` and `lint` scripts |
-| `pr-lint.yaml` | Conventional Commit PR titles; configurable types/scopes/subject |
-| `python-lint.yaml` | Ruff formatting and lint; repository Ruff config |
-| `terraform-lint.yaml` | Terraform format, TFLint and optional Trivy |
-| `yaml-lint.yaml` | yamllint; repository `.yamllint` |
-| `shellcheck.yaml` | ShellCheck; configurable script glob |
-| `renovate-config-validator.yaml` | Repository config by default; global config opt-in |
-| `code-duplication.yaml` | Rust `jscpd` crate's `cpd`; repository `.jscpd.json` |
-| `ci.yaml` | This repository's PR-only lint and regression checks; not reusable |
+| `gh-actions-lint.yaml` | actionlint plus structured workflow security checks |
+| `go-test.yaml` | Go tests with optional race and integration mode |
+| `helm-lint.yaml` | Chart dependency build, lint/render, optional kubeconform and Trivy |
+| `node-build.yaml` | Frozen install plus caller build script |
+| `node-lint.yaml` | Frozen install plus caller check/lint scripts |
+| `node-test.yaml` | Frozen install, optional Playwright, tests and artifact upload |
+| `python-build.yaml` | uv package build and directory-correct distribution upload |
+| `python-lint.yaml` | Separate Ruff format and lint jobs |
+| `python-test.yaml` | Locked uv dependency sync and pytest |
+| `renovate-config-validator.yaml` | Repository or global Renovate config validation |
+| `terraform-lint.yaml` | Terraform formatting, TFLint and optional Trivy |
+| `terraform-test.yaml` | Module test and environment validation matrices |
+| `terraform-plan.yaml` | OIDC auth, validation, plan and updated PR comment |
+| `terraform-apply.yaml` | OIDC auth, saved plan and apply; optional environment gate |
+| `publish-docker-gar.yaml` | Per-platform builds, manifest assembly and keyless attestation |
+| `publish-helm-oci.yaml` | Package and publish Helm charts to caller-selected GAR |
+| `cosign-attest.yaml` | Registry login, SLSA predicate, keyless attestation and verification |
+| `deploy-github-pages.yaml` | Node site build, artifact handoff and Pages deployment |
+| `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
+| `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-Workflow files document their inputs, defaults and tool versions. There is one
-Helm workflow; schema and security scans are explicit inputs on that workflow.
+There are 19 reusable workflows and one repository CI workflow. Workflows remain
+where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
+have been removed: use those actions directly. Python lint keeps separate format
+and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
 ```yaml
-name: Lint
+name: Test
 on:
   pull_request:
 permissions:
   contents: read
 jobs:
   go:
-    uses: kellen-miller/ci/.github/workflows/go-lint.yaml@<reviewed-commit>
+    uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
       working-directory: backend
-  yaml:
-    uses: kellen-miller/ci/.github/workflows/yaml-lint.yaml@<reviewed-commit>
 ```
 
 Use a full reviewed commit SHA. Workflow-internal action references are also full
@@ -58,7 +64,8 @@ every transitive dependency.
 - Go config is discovered normally from the working directory and its parents.
   Set `config` for an explicit path relative to `working-directory`. Nothing
   downloads or replaces `.golangci.yaml`. Formatting checks fail without rewriting
-  files. There is no bundled company/framework-specific preset.
+  files. `configs/golangci.yaml` is an optional generalized preset; copy and review
+  it explicitly. It is never downloaded into a consumer automatically.
 - Node resolves an explicit runtime, then `.node-version`, `.nvmrc`,
   `package.json`'s `engines.node`, or Node 24. An ambiguous package-manager lockfile
   requires an explicit choice. npm, pnpm, Yarn and Bun use frozen installs.
@@ -69,9 +76,9 @@ every transitive dependency.
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
   report never replaces the original failure status. The Rust crate and the npm
   package named `jscpd` are different installations.
-- Reviewdog-based checks use `reporter: local`, `filter_mode: nofilter` and
-  `fail_level: any`. Warnings and errors fail the job without requiring GitHub
-  check-write or PR-write permissions. These defaults work on fork PRs.
+- The retained actionlint integration uses `reporter: local`, `filter_mode: nofilter`
+  and `fail_level: any`. When using upstream Reviewdog actions directly, apply
+  these settings explicitly to fail on findings throughout the repository.
 - Workflow security validation parses YAML rather than matching comment text.
   All external action/workflow refs require full commit SHAs; Docker actions
   require SHA-256 digests; checkout must disable credential persistence.
@@ -100,11 +107,20 @@ and `kubernetes-version` when reproducibility is required.
 
 | Action | Purpose |
 | --- | --- |
-| `go-lint` | Set up Go; run golangci-lint, formatting and optional govulncheck |
-| `setup-node` | Resolve runtime/package manager, cache downloads, install locked dependencies |
-| `helm-lint-charts` | Set up Helm/kubeconform, lint/render charts, optionally validate schemas |
-| `validate-workflow-security` | Parse workflow/action YAML and enforce reference/credential rules |
-| `code-duplication` | Install Rust cpd and run the caller's duplication configuration |
+| `go-lint` | Go setup, golangci-lint, formatting and optional govulncheck |
+| `setup-node` | Runtime/package-manager detection, cache and frozen install |
+| `helm-lint-charts` | Chart dependency build, lint/render and optional schema validation |
+| `validate-workflow-security` | Structured action reference and credential policy checks |
+| `code-duplication` | Rust cpd with caller configuration and preserved failure status |
+| `docker-publish-core` | Buildx/QEMU, metadata, registry login, cache, build/push and provenance |
+| `playwright-setup` | Installed-version/architecture browser cache and OS dependency setup |
+| `resolve-github-release` | Resolve explicit or latest public GitHub release tags |
+| `gcp-gar-auth` | Caller-owned GCP OIDC auth, SDK setup and optional Docker auth |
+| `github-app-auth` | Caller-scoped App token and optional repository-local bot identity |
+| `terraform-plan-comment` | Create or update an environment/directory-specific PR plan comment |
+| `clean-generated-output-dir` | Delete marked generated files inside an explicit workspace subtree |
+| `release` | Conventional Commit releases, optional path scoping and initial version |
+| `stale-branch-cleanup` | Explicit repository targets, warning period and dry-run default |
 
 Use composite actions directly when combining checks in one job. Each action
 lives under `.github/actions/<name>/action.yaml`.
@@ -130,6 +146,68 @@ duplication use `.github/actions/helm-lint-charts` and
 `.github/actions/code-duplication` directly. The shared actions are available
 without the whole-job wrappers.
 
+## Releases, publishing and maintenance
+
+`release` runs directly after a full-history checkout (`fetch-depth: 0`,
+`fetch-tags: true`, `persist-credentials: false`). Supply a token with
+`contents: write`. Standard Conventional Commits produce major releases for
+breaking changes. The former prelaunch policy is opt-in with `prelaunch: true`;
+`first-release-version: 0.1.0` explicitly selects the old initial-version behavior.
+Empty initial version uses semantic-release defaults. `dry-run: true` calculates
+outputs without publishing. `commit-paths` scopes commits and notes; when empty,
+a subdirectory release scopes to that directory. `config-file` loads an explicit
+CommonJS/ESM config without replacing consumer files. `extra-plugins` accepts
+public `package@version` specs. Shared tooling uses a committed public npm lockfile.
+Use an App/PAT token if release events need to trigger downstream workflows;
+GitHub's built-in token has event-trigger restrictions.
+
+GHCR publication uses `docker-publish-core` directly: set `image` to
+`ghcr.io/<owner>/<image>`, `registry: ghcr.io`, `registry-username` to the actor and
+`registry-password` to `github.token`; grant `packages: write`. The GAR workflow
+adds platform builds, artifact handoff, manifest publication and attestation.
+Use distinct `artifact-prefix` values when invoking it more than once in a run.
+Cloud workflows require `id-token: write`, caller-selected projects/providers and
+appropriate cloud bindings. Environment gates remain under consumer control.
+Cosign verification requires an exact caller-supplied signing certificate identity,
+including its workflow URL and ref; there is no organization-wide regex default.
+
+`stale-branch-cleanup` is an action with no automatic schedule. Empty `repositories`
+means only the caller repository; explicit owner/repo targets enable multiple
+repositories. Default `dry-run: true` performs no branch/issue writes. Setting it
+false first records warnings in an issue; deletion requires an unchanged tip and
+at least `warning-days` (default 7). Default/protected branches and branches with
+open PRs are skipped. Pagination covers all branches/issues, and tip/protection/PR
+state is rechecked before deletion. Use `contents: write`, `issues: write` and
+`pull-requests: read`;
+a cross-repository App/PAT must cover every selected repository. Calls for the
+same targets should use caller-defined concurrency with cancellation disabled.
+
+`clean-generated-output-dir` requires an explicit directory strictly inside
+`github.workspace`. It preserves handwritten files and symlinks and rejects the
+workspace root. It deletes files marked `generated by ... do not edit` in the
+first ten lines, then removes empty descendant directories.
+
+Vault workflows/actions and private-package auth are excluded. Organization
+RunsOn configuration and private Renovate presets are replaced by hosted runners
+and public configuration. The generalized Go preset is optional. Release self-tests
+are part of `ci.yaml` rather than a second repository workflow.
+
+## Upstream actions used directly
+
+No wrappers are provided for Hadolint, yamllint, ShellCheck or semantic PR-title
+validation. Use the upstream actions and own their inputs in the consumer:
+
+| Purpose | Action at audited pin |
+| --- | --- |
+| Dockerfile lint | `reviewdog/action-hadolint@2d0eb7c86a0ddd94eb625485f4cc2730e105edd8` |
+| YAML lint | `reviewdog/action-yamllint@de68272fdca5f2a961fb309e0d2e13c2eb186d9e` |
+| Shell lint | `reviewdog/action-shellcheck@0722bbdb0d47f04c1b53b8734d2422ac63a45ec6` |
+| PR title | `amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50` |
+
+For Reviewdog, use `reporter: local`, `filter_mode: nofilter`, `fail_level: any`.
+PR-title validation needs `pull-requests: read` and its GitHub token environment.
+Keep consumer policy and configuration in the consuming repository.
+
 ## Local validation
 
 Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go and Node/npm.
@@ -141,8 +219,10 @@ uv run python scripts/check.py
 ```
 
 Tests run real Helm rendering, real Go formatting and real frozen npm installs.
-Additional regressions cover YAML policy decisions, checksum rejection and
-duplication failure propagation.
+Additional regressions cover YAML policy, checksum rejection, duplication failures,
+generated-file cleanup, cache overrides and branch warning/deletion boundaries.
+Release tests use temporary local Git repositories, including real semantic-release
+dry runs. Hosted publishing/deployment/authentication has not run.
 
 When changing shared actions, commit them before updating workflow pins:
 

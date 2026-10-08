@@ -1,0 +1,58 @@
+name: Node Build
+'on':
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory containing package.json and the lockfile.
+        type: string
+        default: .
+      package-manager:
+        description: Package manager to use (pnpm|npm|yarn|bun). Auto-detected from the lockfile when empty.
+        type: string
+        default: ''
+      node-version:
+        description: Node.js version. Empty selects from .nvmrc, package.json engines, or setup-node's default.
+        type: string
+        default: ''
+      pnpm-version:
+        description: pnpm version. Empty lets pnpm/action-setup read the packageManager field in package.json.
+        type: string
+        default: ''
+      bun-version:
+        description: bun version. Empty installs the latest.
+        type: string
+        default: ''
+      install-args:
+        description: Extra arguments appended to the install command.
+        type: string
+        default: ''
+      build-script:
+        description: Script name to run (invoked as '<pm> run <script>').
+        type: string
+        default: build
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Node Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: setup
+        uses: kellen-miller/ci/.github/actions/setup-node@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          working-directory: ${{ inputs.working-directory }}
+          package-manager: ${{ inputs.package-manager }}
+          node-version: ${{ inputs.node-version }}
+          pnpm-version: ${{ inputs.pnpm-version }}
+          bun-version: ${{ inputs.bun-version }}
+          install-args: ${{ inputs.install-args }}
+      - name: Run build
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          PM: ${{ steps.setup.outputs.package-manager }}
+          SCRIPT: ${{ inputs.build-script }}
+        run: |
+          "$PM" run "$SCRIPT"

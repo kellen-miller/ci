@@ -15,4 +15,4 @@ jobs:
           reporter: local
           filter_mode: nofilter
           fail_level: any
-      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@0bdade77edfa48cf4fd486946b7c750de5fb0358
+      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0

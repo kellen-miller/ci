@@ -1,0 +1,43 @@
+name: Python Test
+'on':
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory containing pyproject.toml and tests
+        type: string
+        default: .
+      pytest-args:
+        description: Whitespace-separated pytest arguments; shell syntax is not evaluated
+        type: string
+        default: -v
+permissions:
+  contents: read
+jobs:
+  python-test:
+    name: Python Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working-directory }}/uv.lock
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: ${{ inputs.working-directory }}/pyproject.toml
+      - name: Sync Python dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          uv sync --locked
+      - name: Run Python tests
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          read -r -a args <<< "$PYTEST_ARGS"
+          uv run --locked pytest ${args[@]+"${args[@]}"}
+        env:
+          PYTEST_ARGS: ${{ inputs.pytest-args }}

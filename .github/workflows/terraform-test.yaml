@@ -1,0 +1,66 @@
+name: Terraform Test
+'on':
+  workflow_call:
+    inputs:
+      terraform-version:
+        description: Terraform version
+        required: false
+        type: string
+        default: latest
+      modules:
+        description: 'JSON array of modules: [{"name":"...","path":"..."},...]'
+        required: false
+        type: string
+        default: '[]'
+      environments:
+        description: 'JSON array of environments: [{"name":"...","path":"..."},...]'
+        required: false
+        type: string
+        default: '[]'
+permissions:
+  contents: read
+jobs:
+  module-tests:
+    name: Terraform Test (${{ matrix.name }})
+    if: inputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(inputs.modules) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+      - name: Terraform init
+        working-directory: ${{ matrix.path }}
+        run: terraform init -backend=false
+      - name: Terraform test
+        working-directory: ${{ matrix.path }}
+        run: terraform test -no-color
+  validate:
+    name: Terraform Validate (${{ matrix.name }})
+    if: inputs.environments != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(inputs.environments) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+      - name: Terraform init
+        working-directory: ${{ matrix.path }}
+        run: terraform init -backend=false
+      - name: Terraform validate
+        working-directory: ${{ matrix.path }}
+        run: terraform validate -no-color

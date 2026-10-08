@@ -1,7 +1,8 @@
 # Extraction changes
 
-The initial package contains 12 reusable lint/validation workflows, five composite
-actions, a PR-only repository validation workflow, MIT licensing and usage docs.
+The package contains 19 reusable workflows, 14 composite actions, one PR-only
+repository CI workflow, MIT licensing and usage docs. Single-action workflow
+wrappers are removed; consumers invoke those actions directly.
 
 | Area | Implemented change |
 | --- | --- |
@@ -19,13 +20,33 @@ actions, a PR-only repository validation workflow, MIT licensing and usage docs.
 | Renovate | Public recommended preset; repository validation is the default, global validation is opt-in. |
 | Version boundaries | Reusable workflows reference committed action snapshots; maintenance command updates those pins explicitly. |
 
-Deployment, release, publishing, organization maintenance, private identities and
-product-specific secret schemas remain outside this lint package.
+Build/test, publishing, signing, deployment, release and branch maintenance are now
+included. Vault and private-package authentication remain excluded. Weave App
+identity becomes explicit `github-app-auth` inputs; cloud targets and signer trust
+are supplied by the consumer. No automatic branch cleanup schedule is installed.
+
+Additional changes:
+
+- Python build artifacts honor the selected working directory; pytest arguments
+  are passed without evaluating shell syntax; dependency sync checks the lockfile.
+- Docker cache source/destination overrides work independently. Build secrets use
+  one build step; GAR digest artifacts accept distinct invocation prefixes.
+- GCP credential files move outside the workspace before builds or artifact uploads.
+- Playwright cache keys include architecture, and both hit/miss paths install OS deps.
+- Terraform plan comments update an existing directory/environment report.
+- Generated-output cleanup rejects the workspace root and preserves symlinks.
+- Release configuration stays inside the pinned action; caller configs are never
+  overwritten. Breaking changes are major by default; prelaunch/initial-version
+  overrides are explicit. Public tooling has a committed npm lockfile.
+- Branch cleanup paginates explicit targets, skips protected/default/open-PR branches,
+  requires elapsed warnings and an unchanged tip, and defaults to no writes.
+- Optional `configs/golangci.yaml` removes organization prefixes/framework exceptions
+  and broad security exclusions; Go consumers still own their configuration.
 
 ## Local evidence — October 8, 2026
 
 `uv run python scripts/check.py` runs Ruff lint/format, yamllint, actionlint,
-ShellCheck, the workflow-security checker and 16 regression tests.
+ShellCheck, the workflow-security checker and 21 Python regression tests plus eight release tests.
 
 Tests exercise real Helm rendering and dependency handling, real golangci-lint
 formatting/config discovery, and real npm frozen installs. They also verify YAML

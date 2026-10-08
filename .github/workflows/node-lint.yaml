@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: kellen-miller/ci/.github/actions/setup-node@0bdade77edfa48cf4fd486946b7c750de5fb0358
+      - uses: kellen-miller/ci/.github/actions/setup-node@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}
