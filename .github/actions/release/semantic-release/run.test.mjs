@@ -6,9 +6,25 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import test from "node:test";
+import {generateNotes} from "@semantic-release/release-notes-generator";
 
 const require = createRequire(import.meta.url);
 const runner = fileURLToPath(new URL("./run.mjs", import.meta.url));
+
+test("the default release preset renders notes with the installed writer", async () => {
+    const config = require("./release.config.cjs");
+    const [, options] = config.plugins.find(([name]) => name === require.resolve("@semantic-release/release-notes-generator"));
+    const notes = await generateNotes(options, {
+        cwd: process.cwd(),
+        env: {},
+        options: {repositoryUrl: "https://github.com/example/project"},
+        commits: [{message: "feat: verify release notes", hash: "a".repeat(40)}],
+        lastRelease: {},
+        nextRelease: {version: "1.0.0", gitTag: "v1.0.0"},
+    });
+
+    assert.match(notes, /verify release notes/);
+});
 
 test("extra plugin inputs reject npm options and local dependencies", () => {
     for (const spec of ["--help@1", "example@file:local", "example@https://example.com/package.tgz"]) {
