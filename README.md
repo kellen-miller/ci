@@ -7,8 +7,7 @@ Build/test/lint jobs need no private-package authentication. Publishing and depl
 use the caller's registry credentials or cloud OIDC trust. Release and maintenance
 actions accept explicitly supplied GitHub tokens. No organization identity is embedded.
 
-This repository is prepared locally for `kellen-miller/ci`. It has no remote and
-has not been published. Cross-repository examples become usable after publication.
+Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 
 ## Workflows
 
@@ -199,7 +198,7 @@ are part of `ci.yaml` rather than a second repository workflow.
 ## Shared Renovate configuration
 
 `default.json` is the shared preset. This repository's `renovate.json` extends it;
-other repositories can use the same reference after publication:
+other repositories can use the same reference:
 
 ```json
 {
@@ -223,7 +222,6 @@ merge timing; it does not restrict Renovate scans to once a month. See the
 The preset uses UTC unless the consumer sets `timezone`.
 
 Local checks and CI validate both JSON files with the pinned Renovate validator.
-Remote preset resolution becomes available after this repository is published.
 
 ## Upstream actions used directly
 
@@ -268,4 +266,4 @@ uv run python scripts/pin-actions.py HEAD
 
 The pin command refuses action changes that differ from the selected commit.
 The action snapshot must be included in the eventual pushed history. Publish and
-release only after local review; this checkout does not configure or push a remote.
+release only after review and passing CI.
