@@ -61,6 +61,10 @@ every transitive dependency.
 
 ## Config and failure behavior
 
+- YAML uses the same rules as Homeserver, Skills, Sup and Dotfiles: two-space
+  indentation, block collections, `true`/`false` booleans, and no line-length or
+  document-start requirement. `.gitignore` controls exclusions. Validation uses
+  `yamllint --strict`; consumers can copy this repository's `.yamllint`.
 - Go config is discovered normally from the working directory and its parents.
   Set `config` for an explicit path relative to `working-directory`. Nothing
   downloads or replaces `.golangci.yaml`. Formatting checks fail without rewriting

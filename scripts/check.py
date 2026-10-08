@@ -18,7 +18,7 @@ shell_scripts = [
 commands = [
     ["ruff", "check", "."],
     ["ruff", "format", "--check", "."],
-    ["yamllint", "."],
+    ["yamllint", "--strict", "."],
     ["actionlint"],
     ["golangci-lint", "config", "verify", "--config", "configs/golangci.yaml"],
     ["shellcheck", *sorted(set(shell_scripts))],
