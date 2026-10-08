@@ -17,11 +17,11 @@ wrappers are removed; consumers invoke those actions directly.
 | Workflow security | Parse YAML; require SHA-pinned refs, digest-pinned Docker actions and disabled checkout credential persistence. |
 | Security policy | Explicit opt-in for privileged PR triggers or inherited secrets; no organization-specific ref exemptions. |
 | Duplication | Configurable Rust crate version, caller config/exclusions/threshold, original failure preserved after diagnostic output. |
-| Renovate | Public recommended preset; repository validation is the default, global validation is opt-in. |
+| Renovate | Shared public preset with grouping, monthly automerge, age gates and custom managers; repository validation by default. |
 | Version boundaries | Reusable workflows reference committed action snapshots; maintenance command updates those pins explicitly. |
 
 Build/test, publishing, signing, deployment, release and branch maintenance are now
-included. Vault and private-package authentication remain excluded. Weave App
+included. Vault and private-package authentication remain excluded. GitHub App
 identity becomes explicit `github-app-auth` inputs; cloud targets and signer trust
 are supplied by the consumer. No automatic branch cleanup schedule is installed.
 
@@ -40,13 +40,18 @@ Additional changes:
   overrides are explicit. Public tooling has a committed npm lockfile.
 - Branch cleanup paginates explicit targets, skips protected/default/open-PR branches,
   requires elapsed warnings and an unchanged tip, and defaults to no writes.
-- Optional `configs/golangci.yaml` removes organization prefixes/framework exceptions
+- Optional `config/golangci.yaml` removes organization prefixes/framework exceptions
   and broad security exclusions; Go consumers still own their configuration.
 
 ## Local evidence — October 8, 2026
 
 `uv run python scripts/check.py` runs Ruff lint/format, yamllint, actionlint,
-ShellCheck, the workflow-security checker and 21 Python regression tests plus eight release tests.
+Go configuration verification, strict Renovate configuration validation,
+ShellCheck, the workflow-security checker and 21 Python regression tests plus
+eight release tests.
+
+The shared Renovate preset also passed resolved-policy checks for eight dependency
+cases and real extraction checks for all three custom managers with native RE2.
 
 Tests exercise real Helm rendering and dependency handling, real golangci-lint
 formatting/config discovery, and real npm frozen installs. They also verify YAML

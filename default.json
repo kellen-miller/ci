@@ -1,0 +1,139 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "autoApprove": true,
+  "automergeStrategy": "squash",
+  "extends": [
+    ":automergeMinor",
+    ":automergePr",
+    ":automergeRequireAllStatusChecks",
+    ":configMigration",
+    ":docker",
+    ":semanticCommitTypeAll(chore)",
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "schedule:automergeMonthly"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update comment-annotated YAML scalar version pins.",
+      "managerFilePatterns": [
+        "/\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s+versioning=(?<versioning>\\S+)\\s*\\n\\s*[A-Za-z0-9_.-]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "versioningTemplate": "{{{versioning}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Update comment-annotated Git ref digest pins in YAML scalars.",
+      "managerFilePatterns": [
+        "/\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>git-refs)\\s+depName=(?<depName>\\S+)\\s+packageName=(?<packageName>\\S+)\\s+currentValue=(?<currentValue>\\S+)\\s*\\n\\s*[A-Za-z0-9_.-]+:\\s*[\"']?(?<currentDigest>[0-9a-f]{40})[\"']?"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Update comment-annotated Docker ARG version pins, including image tag ARGs.",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+packageName=(?<packageName>\\S+))?(?:\\s+registryUrl=(?<registryUrl>\\S+))?\\s+versioning=(?<versioning>\\S+)\\s*\\n\\s*ARG\\s+[A-Z0-9_]+=(?:\\S+:)?(?<currentValue>\\S+)"
+      ],
+      "versioningTemplate": "{{{versioning}}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Run go mod tidy after Go module updates so go.mod and go.sum stay in sync.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "postUpdateOptions": [
+        "gomodTidy"
+      ]
+    },
+    {
+      "automerge": true,
+      "groupName": "all non-major dependencies",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ]
+    },
+    {
+      "autoApprove": false,
+      "automerge": false,
+      "groupName": "github actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "autoApprove": false,
+      "automerge": false,
+      "groupName": "github actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "pin",
+        "digest",
+        "pinDigest"
+      ],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Delay npm and PyPI updates so brand-new compromised releases have time to be detected and pulled.",
+      "matchDatasources": [
+        "npm",
+        "pypi"
+      ],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Do not automerge package registry updates that run publish/build tooling.",
+      "autoApprove": false,
+      "automerge": false,
+      "matchDatasources": [
+        "npm",
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "@semantic-release/**",
+        "@types/node",
+        "build",
+        "cycjimmy/semantic-release-action",
+        "npm",
+        "pnpm",
+        "pypa/gh-action-pypi-publish",
+        "ruff",
+        "semantic-release",
+        "setuptools",
+        "twine",
+        "uv"
+      ]
+    }
+  ],
+  "platformAutomerge": false,
+  "rebaseWhen": "conflicted",
+  "description": "Shared CI and dependency update policy for public repositories."
+}
