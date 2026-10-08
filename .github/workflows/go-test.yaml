@@ -20,6 +20,10 @@ name: Go Test
         required: false
         default: true
         type: boolean
+      test-packages:
+        description: Whitespace-separated package paths to test.
+        type: string
+        default: ./...
       vet:
         description: Run go vet after tests.
         type: boolean
@@ -57,6 +61,7 @@ jobs:
         env:
           INTEGRATION: ${{ inputs.integration }}
           RACE: ${{ inputs.race }}
+          TEST_PACKAGES: ${{ inputs.test-packages }}
           VET: ${{ inputs.vet }}
           BUILD_TARGET: ${{ inputs.build-target }}
         working-directory: ${{ inputs.working-directory }}
@@ -66,7 +71,13 @@ jobs:
             args+=(-race)
           fi
 
-          go test "${args[@]}" ./...
+          read -r -a packages <<< "$TEST_PACKAGES"
+          if [[ ${#packages[@]} -eq 0 ]]; then
+            echo 'test-packages must contain at least one package path' >&2
+            exit 1
+          fi
+
+          go test "${args[@]}" "${packages[@]}"
 
           if [[ "$VET" == true ]]; then
             go vet ./...
