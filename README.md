@@ -46,12 +46,23 @@ on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   go:
     uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
       working-directory: backend
 ```
+
+Set concurrency on each caller workflow so a new run cancels superseded checks
+for the same workflow and PR or branch, including its reusable workflow jobs.
+The shared workflows leave concurrency to callers; defining the same group in
+both caller and called workflows can cancel the caller itself. Keep cancellation
+disabled for release, publication, deployment and infrastructure writes. For a
+workflow that only previews on PRs and writes on other events, use
+`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
 
 Use a full reviewed commit SHA. Workflow-internal action references are also full
 commit SHAs; there are no mutable internal branch references. Consumers control
