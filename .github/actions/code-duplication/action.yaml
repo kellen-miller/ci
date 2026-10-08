@@ -9,7 +9,7 @@ inputs:
     default: .jscpd.json
   version:
     description: Rust jscpd crate version
-    default: '5.0.6'
+    default: '5.4.0'
   threshold:
     description: Optional threshold override; empty preserves configuration
     default: ''
