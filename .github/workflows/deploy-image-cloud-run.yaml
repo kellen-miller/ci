@@ -1,0 +1,138 @@
+name: Deploy Image to Cloud Run
+'on':
+  workflow_call:
+    inputs:
+      project-id:
+        description: GCP project hosting the Cloud Run service (where the service is created/updated).
+        type: string
+        required: true
+      gar-project-id:
+        description: Image registry project; empty uses project-id
+        type: string
+        required: false
+        default: ''
+      repository-name:
+        description: Name of the Google Artifact Registry docker repository
+        type: string
+        default: docker
+      repository-region:
+        description: Region of the Google Artifact Registry docker repository
+        type: string
+        required: true
+      service-account:
+        description: Deployer service account impersonated by this workflow via WIF. Needs roles/run.admin on project-id
+          and serviceAccountUser on runtime-service-account.
+        type: string
+        required: true
+      runtime-service-account:
+        description: Runtime service account; empty retains the platform default
+        type: string
+        required: false
+        default: ''
+      service-name:
+        description: Cloud Run service name
+        type: string
+        required: true
+      image-name:
+        description: Image name
+        type: string
+        required: true
+      image-tag:
+        description: Image tag
+        type: string
+        required: true
+      cpu:
+        description: CPU allocation for Cloud Run service
+        type: number
+        default: 1
+      memory:
+        description: Memory allocation for Cloud Run service
+        type: string
+        default: 512Mi
+      min-instances:
+        description: Minimum number of instances
+        type: number
+        default: 0
+      max-instances:
+        description: Maximum number of instances
+        type: number
+        default: 10
+      concurrency:
+        description: Concurrency for Cloud Run service
+        type: number
+        default: 80
+      timeout:
+        description: Timeout for Cloud Run service
+        type: string
+        default: 300s
+      port:
+        description: Port for Cloud Run service
+        type: number
+        default: 8080
+      allow-unauthenticated:
+        description: Allow unauthenticated access
+        type: boolean
+        default: true
+      env-vars:
+        description: Plain environment variables to pass to Cloud Run, one KEY=VALUE per line.
+        type: string
+        required: false
+      runtime-secrets:
+        description: Secret Manager references, one KEY=SECRET_NAME:VERSION per line
+        type: string
+        required: false
+      region:
+        description: Cloud run region
+        type: string
+        required: true
+      environment:
+        description: Optional GitHub environment that gates deployment and supplies its OIDC claim
+        type: string
+        required: false
+        default: ''
+    secrets:
+      WORKLOAD_IDENTITY_PROVIDER:
+        required: true
+jobs:
+  deploy-image-cloud-run:
+    name: Deploy Image to Cloud Run
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate with Google Cloud
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          project-id: ${{ inputs.project-id }}
+          workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service-account: ${{ inputs.service-account }}
+          repository-region: ${{ inputs.repository-region }}
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d
+        with:
+          service: ${{ inputs.service-name }}
+          region: ${{ inputs.region }}
+          image: ${{ inputs.repository-region }}-docker.pkg.dev/${{ inputs.gar-project-id != '' && inputs.gar-project-id
+            || inputs.project-id }}/${{ inputs.repository-name }}/${{ inputs.image-name }}:${{ inputs.image-tag
+            }}
+          project_id: ${{ inputs.project-id }}
+          flags: |
+            --cpu=${{ inputs.cpu }}
+            --memory=${{ inputs.memory }}
+            --min-instances=${{ inputs.min-instances }}
+            --max-instances=${{ inputs.max-instances }}
+            --concurrency=${{ inputs.concurrency }}
+            --timeout=${{ inputs.timeout }}
+            --port=${{ inputs.port }}
+            ${{ inputs.runtime-service-account != '' &&
+                format('--service-account={0}', inputs.runtime-service-account) || '' }}
+            ${{ inputs.allow-unauthenticated && '--allow-unauthenticated' || '--no-allow-unauthenticated' }}
+          env_vars: ${{ inputs.env-vars }}
+          secrets: ${{ inputs.runtime-secrets }}
+          secrets_update_strategy: overwrite

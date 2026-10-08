@@ -1,0 +1,26 @@
+name: Terraform Plan PR Comment
+description: Post a Terraform plan output as a PR comment
+inputs:
+  working-directory:
+    description: Directory containing the plan.txt output
+    required: true
+  env-name:
+    description: Environment name for the comment heading
+    required: true
+outputs: {}
+runs:
+  using: composite
+  steps:
+    - name: Resolve script path
+      id: paths
+      shell: bash
+      run: echo "scripts=${GITHUB_ACTION_PATH}/scripts" >> "$GITHUB_OUTPUT"
+    - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+      env:
+        SCRIPT_DIR: ${{ steps.paths.outputs.scripts }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+        ENV_NAME: ${{ inputs.env-name }}
+      with:
+        script: |
+          const fn = require(process.env.SCRIPT_DIR + '/comment.js');
+          await fn({github, context});

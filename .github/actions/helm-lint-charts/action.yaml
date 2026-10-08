@@ -1,0 +1,58 @@
+name: Lint Helm charts
+description: Render charts once, fail on errors and optionally validate Kubernetes schemas
+inputs:
+  charts-root:
+    description: Chart directory or directory containing charts
+    default: charts
+  values-file-pattern:
+    description: Additional values files to check alongside default values
+    default: values-*.yaml
+  helm-version:
+    description: Helm release
+    default: v4.3.0
+  validate-schemas:
+    description: Run kubeconform on every rendered values variant
+    default: 'true'
+  kubeconform-version:
+    description: Explicit kubeconform release
+    default: v0.8.0
+  ignore-missing-schemas:
+    description: Explicitly allow resource kinds without a schema
+    default: 'false'
+  schema-locations:
+    description: Newline-separated kubeconform schema locations
+    default: default
+  kubernetes-version:
+    description: Kubernetes schema version; empty uses kubeconform's default
+    default: ''
+outputs:
+  rendered-directory:
+    description: Temporary directory of successfully rendered manifests
+    value: ${{ steps.render.outputs.directory }}
+runs:
+  using: composite
+  steps:
+    - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      with:
+        version: ${{ inputs.helm-version }}
+    - name: Install verified kubeconform
+      if: inputs.validate-schemas == 'true'
+      shell: bash
+      env:
+        KUBECONFORM_VERSION: ${{ inputs.kubeconform-version }}
+      run: bash "$GITHUB_ACTION_PATH/install-kubeconform.sh"
+    - name: Lint and render charts
+      id: render
+      shell: bash
+      env:
+        CHARTS_ROOT: ${{ inputs.charts-root }}
+        VALUES_PATTERN: ${{ inputs.values-file-pattern }}
+        VALIDATE_SCHEMAS: ${{ inputs.validate-schemas }}
+        IGNORE_MISSING_SCHEMAS: ${{ inputs.ignore-missing-schemas }}
+        SCHEMA_LOCATIONS: ${{ inputs.schema-locations }}
+        KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+      run: |
+        RENDERED_DIR="$(mktemp -d "$RUNNER_TEMP/helm-rendered.XXXXXX")"
+        export RENDERED_DIR
+        bash "$GITHUB_ACTION_PATH/lint.sh"
+        echo "directory=$RENDERED_DIR" >> "$GITHUB_OUTPUT"

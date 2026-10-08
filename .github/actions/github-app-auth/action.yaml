@@ -1,0 +1,43 @@
+name: GitHub App auth
+description: Mint a caller-scoped GitHub App token; optionally configure local bot identity
+inputs:
+  client-id:
+    description: GitHub App client ID
+    required: true
+  private-key:
+    description: GitHub App private key
+    required: true
+  owner:
+    description: Installation owner
+    default: ${{ github.repository_owner }}
+  repositories:
+    description: Comma-separated installation repositories
+    default: ${{ github.event.repository.name }}
+  configure-git:
+    description: Configure repository-local bot author identity
+    default: 'false'
+outputs:
+  token:
+    description: Short-lived installation token
+    value: ${{ steps.token.outputs.token }}
+runs:
+  using: composite
+  steps:
+    - id: token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+      with:
+        client-id: ${{ inputs.client-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: ${{ inputs.owner }}
+        repositories: ${{ inputs.repositories }}
+    - name: Configure local bot identity
+      if: inputs.configure-git == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.token.outputs.token }}
+        SLUG: ${{ steps.token.outputs.app-slug }}
+      run: |
+        login="${SLUG}[bot]"
+        user_id="$(gh api "users/$login" --jq .id)"
+        git config --local user.name "$login"
+        git config --local user.email "$user_id+$login@users.noreply.github.com"

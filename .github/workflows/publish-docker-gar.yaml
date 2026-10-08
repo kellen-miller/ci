@@ -1,0 +1,352 @@
+name: Publish Docker Image to Google Artifact Registry
+'on':
+  workflow_call:
+    inputs:
+      project-id:
+        description: Project ID
+        type: string
+        required: true
+      repository-name:
+        description: Name of the Google Artifact Registry docker repository
+        type: string
+        default: docker
+      repository-region:
+        description: Region of the Google Artifact Registry docker repository
+        type: string
+        required: true
+      image-name:
+        description: Image name
+        type: string
+        required: true
+      context:
+        description: Docker build context
+        type: string
+        default: .
+      target:
+        description: Dockerfile target stage
+        type: string
+        default: ''
+      platforms:
+        description: Target platforms for docker/build-push-action
+        type: string
+        default: ''
+      build-artifact-name:
+        description: Name of a run-scoped GitHub Actions artifact to download before building
+        type: string
+        default: ''
+      build-artifact-path:
+        description: Path where the downloaded build artifact should be placed
+        type: string
+        default: ''
+      build-artifact-check-path:
+        description: Optional path that must exist after downloading the build artifact
+        type: string
+        default: ''
+      tags:
+        description: Docker metadata-action tag rules
+        type: string
+        default: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,format=short
+          type=raw,value=latest,enable={{is_default_branch}}
+      push:
+        description: Push the image and publish its SLSA attestation.
+        type: boolean
+        default: true
+      environment:
+        description: GitHub environment that gates this publish job. Leave empty for callers whose WIF binding does
+          not require an environment claim.
+        type: string
+        default: ''
+      service-account:
+        description: Optional service account to impersonate; empty uses direct WIF
+        type: string
+        default: ''
+      artifact-prefix:
+        description: Unique artifact prefix for this workflow invocation
+        type: string
+        default: image-digest
+      verify-identity:
+        description: Exact signing certificate identity (reusable workflow URL plus @ref)
+        type: string
+        required: true
+    secrets:
+      WORKLOAD_IDENTITY_PROVIDER:
+        required: true
+    outputs:
+      digest:
+        description: Published manifest digest
+        value: ${{ jobs.publish-manifest.outputs.digest }}
+jobs:
+  resolve-build-platforms:
+    name: Resolve Build Platforms
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.platforms.outputs.matrix }}
+    steps:
+      - id: platforms
+        name: Resolve platform matrix
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const rawPlatforms = process.env.PLATFORMS.trim();
+          const requestedPlatforms = rawPlatforms
+            ? rawPlatforms.split(",").map((platform) => platform.trim()).filter(Boolean)
+            : [""];
+          const seen = new Set();
+          const include = [];
+
+          for (const platform of requestedPlatforms) {
+            if (seen.has(platform)) {
+              continue;
+            }
+            seen.add(platform);
+
+            const suffix = platform.replace(/[^A-Za-z0-9_.-]/g, "-") || "default";
+            include.push({
+              platform,
+              suffix,
+              runner_label: platform === "linux/arm64"
+                ? "ubuntu-24.04-arm"
+                : "ubuntu-latest",
+            });
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          NODE
+  publish-platform-image:
+    name: ${{ matrix.suffix }}
+    needs: resolve-build-platforms
+    runs-on: ${{ matrix.runner_label }}
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-build-platforms.outputs.matrix) }}
+    env:
+      IMAGE: ${{ inputs.repository-region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository-name
+        }}/${{ inputs.image-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate with Google Cloud
+        if: ${{ inputs.push }}
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          project-id: ${{ inputs.project-id }}
+          workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          repository-region: ${{ inputs.repository-region }}
+          service-account: ${{ inputs.service-account }}
+      - name: Download build artifact
+        if: ${{ inputs.build-artifact-name != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ inputs.build-artifact-name }}
+          path: ${{ inputs.build-artifact-path }}
+      - name: Verify build artifact
+        if: ${{ inputs.build-artifact-check-path != '' }}
+        env:
+          BUILD_ARTIFACT_CHECK_PATH: ${{ inputs.build-artifact-check-path }}
+        run: test -e "${BUILD_ARTIFACT_CHECK_PATH}"
+      - id: publish
+        name: Build image
+        uses: kellen-miller/ci/.github/actions/docker-publish-core@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          image: ${{ env.IMAGE }}
+          context: ${{ inputs.context }}
+          target: ${{ inputs.target }}
+          platforms: ${{ matrix.platform }}
+          push: 'false'
+          tag-build: ${{ inputs.push && 'false' || 'true' }}
+          outputs: |-
+            ${{
+              inputs.push &&
+              format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) ||
+              ''
+            }}
+          tags: ${{ inputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          setup-qemu: ${{ matrix.platform != 'linux/arm64' && 'true' || 'false' }}
+      - name: Export pushed digest
+        if: ${{ inputs.push }}
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Invalid image digest: ${DIGEST}" >&2
+            exit 1
+          fi
+
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+      - name: Upload digest artifact
+        if: ${{ inputs.push }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.suffix }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+  publish-manifest:
+    name: Publish Manifest
+    if: ${{ inputs.push }}
+    needs:
+      - resolve-build-platforms
+      - publish-platform-image
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE: ${{ inputs.repository-region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository-name
+        }}/${{ inputs.image-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate with Google Cloud
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          project-id: ${{ inputs.project-id }}
+          workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          repository-region: ${{ inputs.repository-region }}
+          service-account: ${{ inputs.service-account }}
+        if: ${{ success() }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+      - id: meta
+        name: Extract Docker metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
+        with:
+          images: ${{ env.IMAGE }}
+          tags: ${{ inputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Download digest artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: ${{ inputs.artifact-prefix }}-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - id: manifest
+        name: Create manifest list
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST_DIR: ${{ runner.temp }}/digests
+        run: |
+          set -euo pipefail
+
+          mapfile -t digest_files < <(find "${DIGEST_DIR}" -maxdepth 1 -type f | sort)
+          if [[ "${#digest_files[@]}" -eq 0 ]]; then
+            echo "No digest artifacts were downloaded." >&2
+            exit 1
+          fi
+
+          digest_args=()
+          for digest_file in "${digest_files[@]}"; do
+            digest_args+=("${IMAGE}@sha256:$(basename "${digest_file}")")
+          done
+
+          tag_args=()
+          primary_tag=""
+          while IFS= read -r tag; do
+            [[ -n "${tag}" ]] || continue
+            tag_args+=(--tag "${tag}")
+            if [[ -z "${primary_tag}" ]]; then
+              primary_tag="${tag}"
+            fi
+          done <<< "${TAGS}"
+
+          if [[ "${#tag_args[@]}" -eq 0 ]]; then
+            echo "No Docker tags were resolved." >&2
+            exit 1
+          fi
+
+          docker buildx imagetools create "${tag_args[@]}" "${digest_args[@]}"
+          raw_manifest="$(mktemp)"
+          docker buildx imagetools inspect --raw "${primary_tag}" > "${raw_manifest}"
+          echo "digest=sha256:$(sha256sum "${raw_manifest}" | awk '{ print $1 }')" >> "${GITHUB_OUTPUT}"
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        with:
+          cosign-release: v3.1.3
+      - name: Write SLSA provenance predicate
+        env:
+          BUILD_TYPE: https://actions.github.io/buildtypes/workflow/v1
+          INVOCATION_ID: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{
+            github.run_attempt }}
+          REPOSITORY: https://github.com/${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const env = process.env;
+          const predicate = {
+            buildDefinition: {
+              buildType: env.BUILD_TYPE,
+              externalParameters: {
+                repository: env.REPOSITORY,
+                ref: env.REF,
+                workflowRef: env.WORKFLOW_REF,
+              },
+              internalParameters: {},
+              resolvedDependencies: [
+                {
+                  uri: `git+${env.REPOSITORY}@${env.REF}`,
+                  digest: { gitCommit: env.SHA },
+                },
+                {
+                  uri: env.WORKFLOW_REF,
+                  digest: { gitCommit: env.WORKFLOW_SHA || env.SHA },
+                },
+              ],
+            },
+            runDetails: {
+              builder: {
+                id: "https://github.com/actions/runner",
+              },
+              metadata: {
+                invocationId: env.INVOCATION_ID,
+              },
+              byproducts: [],
+            },
+          };
+
+          fs.writeFileSync("slsa-provenance.json", `${JSON.stringify(predicate, null, 2)}\n`);
+          NODE
+      - name: Attest image digest
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+        run: cosign attest --yes --predicate slsa-provenance.json --type slsaprovenance1 "${IMAGE}@${DIGEST}"
+      - name: Verify image attestation
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+          IDENTITY: ${{ inputs.verify-identity }}
+        run: |
+          cosign verify-attestation \
+            --type slsaprovenance1 \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${IMAGE}@${DIGEST}"
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}

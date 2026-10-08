@@ -1,0 +1,91 @@
+name: Set up Node project
+description: Resolve runtime and package manager, cache downloads and install locked dependencies
+inputs:
+  working-directory:
+    description: Directory containing package.json and a lockfile
+    default: .
+  package-manager:
+    description: pnpm, npm, yarn or bun; empty detects a single lockfile
+    default: ''
+  node-version:
+    description: Empty reads .node-version, .nvmrc or engines.node, then defaults to 24
+    default: ''
+  pnpm-version:
+    description: Empty reads the packageManager field
+    default: ''
+  bun-version:
+    description: Bun version; empty uses setup-bun's default
+    default: ''
+  install:
+    description: Install dependencies after setup
+    default: 'true'
+  install-args:
+    description: Additional whitespace-separated arguments; shell quoting is not interpreted
+    default: ''
+  pnpm-minimum-release-age:
+    description: Optional package age in minutes; empty preserves repository policy
+    default: ''
+  pnpm-strict-dep-builds:
+    description: Optional true/false override; empty preserves repository policy
+    default: ''
+outputs:
+  package-manager:
+    description: Resolved package manager
+    value: ${{ steps.detect.outputs.package-manager }}
+  node-version:
+    description: Resolved Node version constraint
+    value: ${{ steps.detect.outputs.node-version }}
+runs:
+  using: composite
+  steps:
+    - id: detect
+      name: Resolve runtime and lockfile
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        INPUT_PM: ${{ inputs.package-manager }}
+        INPUT_NODE: ${{ inputs.node-version }}
+        INPUT_WD: ${{ inputs.working-directory }}
+      run: python3 "$GITHUB_ACTION_PATH/detect.py"
+    - name: Set up runtime before package managers
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      with:
+        node-version: ${{ steps.detect.outputs.node-version }}
+        package-manager-cache: false
+    - name: Set up pnpm
+      if: steps.detect.outputs.package-manager == 'pnpm'
+      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      with:
+        version: ${{ inputs.pnpm-version }}
+        package_json_file: ${{ inputs.working-directory }}/package.json
+        run_install: false
+    - name: Set up Bun
+      if: steps.detect.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+    - name: Set up Yarn through Corepack
+      if: steps.detect.outputs.package-manager == 'yarn'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        npm install --global corepack@0.36.0
+        corepack enable
+        echo "COREPACK_ENABLE_AUTO_PIN=0" >> "$GITHUB_ENV"
+    - name: Configure package cache after package manager setup
+      if: steps.detect.outputs.package-manager != 'bun'
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      with:
+        node-version: ${{ steps.detect.outputs.node-version }}
+        cache: ${{ steps.detect.outputs.package-manager }}
+        cache-dependency-path: ${{ steps.detect.outputs.lockfile }}
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PM: ${{ steps.detect.outputs.package-manager }}
+        EXTRA_ARGS: ${{ inputs.install-args }}
+        PNPM_MINIMUM_RELEASE_AGE: ${{ inputs.pnpm-minimum-release-age }}
+        PNPM_STRICT_DEP_BUILDS: ${{ inputs.pnpm-strict-dep-builds }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"

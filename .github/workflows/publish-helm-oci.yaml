@@ -1,0 +1,92 @@
+name: Publish Helm Chart to Google Artifact Registry
+'on':
+  workflow_call:
+    inputs:
+      project-id:
+        description: GCP Project ID hosting the GAR repository
+        type: string
+        required: true
+      repository-name:
+        description: Name of the Google Artifact Registry OCI chart repository
+        type: string
+        default: charts
+      repository-region:
+        description: Region of the Google Artifact Registry OCI chart repository
+        type: string
+        required: true
+      chart-path:
+        description: Path to the chart directory, relative to the caller repo root
+        type: string
+        required: true
+      chart-version:
+        description: Semver chart version, also used as appVersion
+        type: string
+        required: true
+      environment:
+        description: GitHub environment that gates this publish job. Leave empty for callers whose WIF binding does
+          not require an environment claim.
+        type: string
+        default: ''
+      service-account:
+        description: Optional service account to impersonate; empty uses direct WIF
+        type: string
+        default: ''
+      helm-version:
+        description: Helm version
+        type: string
+        default: v4.3.0
+    secrets:
+      WORKLOAD_IDENTITY_PROVIDER:
+        required: true
+jobs:
+  publish-helm-chart:
+    name: Publish Helm Chart
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Authenticate with Google Cloud
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        with:
+          project-id: ${{ inputs.project-id }}
+          workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          repository-region: ${{ inputs.repository-region }}
+          service-account: ${{ inputs.service-account }}
+      - name: Setup Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
+        with:
+          version: ${{ inputs.helm-version }}
+      - name: Login to GAR OCI registry
+        shell: bash
+        env:
+          REGION: ${{ inputs.repository-region }}
+        run: |
+          gcloud auth print-access-token \
+            | helm registry login -u oauth2accesstoken \
+                --password-stdin "${REGION}-docker.pkg.dev"
+      - name: Package chart
+        shell: bash
+        env:
+          CHART_PATH: ${{ inputs.chart-path }}
+          CHART_VERSION: ${{ inputs.chart-version }}
+        run: |
+          helm dependency build "$CHART_PATH"
+          mkdir -p "$RUNNER_TEMP/chart-out"
+          helm package "$CHART_PATH" --version "$CHART_VERSION" \
+            --app-version "$CHART_VERSION" --destination "$RUNNER_TEMP/chart-out"
+      - name: Push chart
+        shell: bash
+        env:
+          REGION: ${{ inputs.repository-region }}
+          PROJECT_ID: ${{ inputs.project-id }}
+          REPO_NAME: ${{ inputs.repository-name }}
+        run: |
+          for tgz in "$RUNNER_TEMP/chart-out/"*.tgz; do
+            helm push "$tgz" "oci://${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}"
+          done

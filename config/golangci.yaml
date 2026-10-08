@@ -1,0 +1,312 @@
+version: '2'
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - golines
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: interface{}
+          replacement: any
+        - pattern: a[b:len(a)]
+          replacement: a[b:]
+    golines:
+      max-len: 120
+      reformat-tags: false
+      shorten-comments: true
+  exclusions:
+    generated: lax
+    paths:
+      - .*mock.*
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-same-issues: 50
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - copyloopvar
+    - cyclop
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forbidigo
+    - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godox
+    - goheader
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - govet
+    - grouper
+    - iface
+    - importas
+    - inamedparam
+    - ineffassign
+    - interfacebloat
+    - intrange
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
+    - mnd
+    - modernize
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - tagalign
+    - tagliatelle
+    - testableexamples
+    - testifylint
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - wrapcheck
+    - whitespace
+    - zerologlint
+  settings:
+    copyloopvar:
+      check-alias: true
+    cyclop:
+      max-complexity: 30
+      package-average: 10
+    depguard:
+      rules:
+        deprecated:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/golang/protobuf
+              desc: Use google.golang.org/protobuf instead
+            - pkg: github.com/satori/go.uuid
+              desc: Use github.com/google/uuid instead, satori's package is not maintained
+            - pkg: github.com/gofrs/uuid$
+              desc: Use github.com/gofrs/uuid/v5 or later, it was not a go module before v5
+            - pkg: gopkg.in/yaml.v
+              desc: Use github.com/goccy/go-yaml instead, gopkg.in/yaml.v* is not maintained
+        non-test files:
+          files:
+            - '!$test'
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2 instead, see https://go.dev/blog/randv2
+        non-main files:
+          files:
+            - '!**/main.go'
+            - '!**/examples/**'
+          deny:
+            - pkg: log$
+              desc: Use log/slog instead, see https://go.dev/blog/slog
+    embeddedstructfieldcheck:
+      forbid-mutex: true
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      verbose: true
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+    funlen:
+      lines: 80
+      statements: 50
+      ignore-comments: true
+    gocognit:
+      min-complexity: 20
+    gocritic:
+      enable-all: true
+      disabled-checks:
+        - paramTypeCombine
+        - unnamedResult
+        - ifElseChain
+      settings:
+        captLocal:
+          paramsOnly: false
+        elseif:
+          skipBalanced: false
+        nestingReduce:
+          bodyWidth: 4
+        underef:
+          skipRecvDeref: false
+    gomoddirectives:
+      replace-local: true
+    govet:
+      enable-all: true
+      settings:
+        shadow:
+          strict: true
+    iface:
+      enable:
+        - identical
+        - opaque
+    mnd:
+      ignored-functions:
+        - flag.Arg
+        - flag.Duration.*
+        - flag.Float.*
+        - flag.Int.*
+        - flag.Uint.*
+        - os.Chmod
+        - os.Mkdir.*
+        - os.OpenFile
+        - os.WriteFile
+    nakedret:
+      max-func-lines: 0
+    prealloc:
+      for-loops: true
+      range-loops: true
+    revive:
+      rules:
+        - name: file-length-limit
+          arguments:
+            - max: 500
+              skip-comments: true
+              skip-blank-lines: true
+        - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skip-package-name-collision-with-go-std: true
+    rowserrcheck:
+      packages:
+        - github.com/jmoiron/sqlx
+    sloglint:
+      attr-only: true
+      key-naming-case: snake
+      context: scope
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -QF1008
+    tagalign:
+      align: false
+      sort: true
+    tagliatelle:
+      case:
+        use-field-name: false
+        rules:
+          json: snake
+          yaml: snake
+          toml: kebab
+          env: upperSnake
+    testifylint:
+      enable-all: true
+    unconvert:
+      fast-math: true
+      safe: true
+    usetesting:
+      os-temp-dir: true
+      context-background: true
+      context-todo: true
+    usestdlibvars:
+      time-date-month: true
+      time-layout: true
+      default-rpc-path: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+    rules:
+      - linters:
+          - govet
+        text: 'shadow: declaration of "(err|ok)" shadows declaration'
+      - linters:
+          - bodyclose
+          - dupl
+          - errcheck
+          - funlen
+          - gochecknoglobals
+          - gocognit
+          - goconst
+          - gosec
+          - maintidx
+          - noctx
+          - nonamedreturns
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - gocritic
+        path: _test\.go
+        text: 'hugeParam:'
+      - linters:
+          - govet
+        path: _test\.go
+        text: 'fieldalignment:'
+      - linters:
+          - revive
+        path: _test\.go
+        text: 'unused-parameter:'
+      - linters:
+          - revive
+        path: _test\.go
+        text: file length is [0-9]+ lines, which exceeds the limit of [0-9]+
+      - linters:
+          - gocritic
+        text: 'hugeParam:'
+        source: .*Config.*
+      - path: .*examples.*
+        linters:
+          - unused
+    paths:
+      - .*mock.*
+      - third_party$
+      - builtin$
+      - examples$
+severity:
+  default: error
+  rules:
+    - linters:
+        - thelper
+      severity: warning

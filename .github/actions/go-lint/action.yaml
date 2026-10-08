@@ -1,0 +1,56 @@
+name: Go lint
+description: Run Go lint, formatting and vulnerability checks with caller-owned config
+inputs:
+  working-directory:
+    description: Directory containing go.mod
+    default: .
+  go-version:
+    description: Go version or supported setup-go constraint
+    default: stable
+  golangci-lint-version:
+    description: golangci-lint version
+    default: v2.14.0
+  config:
+    description: Optional config path relative to working-directory; empty uses normal discovery
+    default: ''
+  vulnerability-check:
+    description: Run govulncheck
+    default: 'true'
+  govulncheck-version:
+    description: golang.org/x/vuln module version
+    default: v1.1.4
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+    - name: Resolve config arguments
+      id: config
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LINT_CONFIG: ${{ inputs.config }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/config.py"
+    - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+      with:
+        version: ${{ inputs.golangci-lint-version }}
+        working-directory: ${{ inputs.working-directory }}
+        args: ${{ steps.config.outputs.args }}
+    - name: Check formatting
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LINT_CONFIG: ${{ inputs.config }}
+      run: bash "$GITHUB_ACTION_PATH/format.sh"
+    - name: Install and run govulncheck
+      if: inputs.vulnerability-check == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        VULN_VERSION: ${{ inputs.govulncheck-version }}
+      run: |
+        go install "golang.org/x/vuln/cmd/govulncheck@$VULN_VERSION"
+        govulncheck ./...

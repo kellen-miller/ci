@@ -1,0 +1,23 @@
+name: Resolve GitHub Release
+description: Resolve 'latest' to the actual tag name of a GitHub release
+inputs:
+  repo:
+    description: GitHub repository (owner/name, e.g. sigstore/cosign)
+    required: true
+  version:
+    description: Version to resolve ('latest' resolves to the latest release tag)
+    required: true
+outputs:
+  tag:
+    description: Resolved release tag
+    value: ${{ steps.resolve.outputs.tag }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        REPO: ${{ inputs.repo }}
+      run: |
+        bash "$GITHUB_ACTION_PATH/scripts/resolve.sh"

@@ -1,0 +1,76 @@
+name: Release
+description: Conventional Commit releases with optional path scoping and initial version
+inputs:
+  working-directory:
+    description: Directory to release
+    default: .
+  release-branches:
+    description: Comma-separated release branches
+    default: main
+  tag-prefix:
+    description: Release tag prefix
+    default: v
+  commit-paths:
+    description: Comma/newline-separated repository paths; empty scopes to working-directory
+    default: ''
+  config-file:
+    description: Optional CommonJS or ESM release config relative to working-directory
+    default: ''
+  extra-plugins:
+    description: Comma/newline-separated public npm plugin specs; pin versions explicitly
+    default: ''
+  first-release-version:
+    description: Optional first release version, such as 0.1.0; empty uses semantic-release defaults
+    default: ''
+  prelaunch:
+    description: Treat breaking changes as minor until launch
+    default: 'false'
+  dry-run:
+    description: Calculate the release without publishing
+    default: 'false'
+  token:
+    description: GitHub token used for tags/releases
+    required: true
+outputs:
+  release_published:
+    description: Whether a release was published
+    value: ${{ steps.release.outputs.release_published }}
+  version:
+    description: Release version
+    value: ${{ steps.release.outputs.version }}
+  major_minor:
+    description: Release major.minor
+    value: ${{ steps.release.outputs.major_minor }}
+  git_tag:
+    description: Release tag
+    value: ${{ steps.release.outputs.git_tag }}
+  release_strategy:
+    description: none, semantic or initial
+    value: ${{ steps.release.outputs.release_strategy }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      with:
+        node-version: '24'
+        package-manager-cache: false
+    - name: Install release tooling
+      shell: bash
+      run: |
+        npm ci --prefix "$GITHUB_ACTION_PATH/semantic-release" --ignore-scripts --no-audit --no-fund
+    - id: release
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        SEMANTIC_RELEASE_BRANCHES: ${{ inputs.release-branches }}
+        SEMANTIC_RELEASE_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        SEMANTIC_RELEASE_COMMIT_PATHS: ${{ inputs.commit-paths }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        EXTRA_PLUGINS: ${{ inputs.extra-plugins }}
+        FIRST_RELEASE_VERSION: ${{ inputs.first-release-version }}
+        PRELAUNCH: ${{ inputs.prelaunch }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        node "$GITHUB_ACTION_PATH/semantic-release/run.mjs"

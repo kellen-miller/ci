@@ -1,0 +1,89 @@
+name: GCP and GAR Auth
+description: Authenticate to Google Cloud and configure Artifact Registry Docker auth
+inputs:
+  project-id:
+    description: Google Cloud project ID
+    required: true
+  workload-identity-provider:
+    description: Workload identity provider
+    required: true
+  service-account:
+    description: Service account email (optional)
+    required: false
+    default: ''
+  repository-region:
+    description: Artifact Registry region
+    required: false
+    default: us-east1
+  install-components:
+    description: Comma-separated Google Cloud SDK components to install
+    required: false
+    default: ''
+  version:
+    description: Google Cloud SDK version or version constraint
+    required: false
+    default: latest
+  cache:
+    description: Cache the downloaded Google Cloud SDK
+    required: false
+    default: 'false'
+  skip-install:
+    description: Use the preinstalled Google Cloud SDK on the runner
+    required: false
+    default: 'false'
+  configure-docker:
+    description: Configure Docker authentication for Artifact Registry
+    required: false
+    default: 'true'
+outputs:
+  credentials-file-path:
+    description: Path to generated GCP credentials file
+    value: ${{ steps.credentials.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - id: auth_with_sa
+      if: ${{ inputs.service-account != '' }}
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        create_credentials_file: 'true'
+        export_environment_variables: 'true'
+        project_id: ${{ inputs.project-id }}
+        workload_identity_provider: ${{ inputs.workload-identity-provider }}
+        service_account: ${{ inputs.service-account }}
+    - id: auth_without_sa
+      if: ${{ inputs.service-account == '' }}
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        create_credentials_file: 'true'
+        export_environment_variables: 'true'
+        project_id: ${{ inputs.project-id }}
+        workload_identity_provider: ${{ inputs.workload-identity-provider }}
+    - name: Move credentials outside the build workspace
+      id: credentials
+      shell: bash
+      env:
+        CREDENTIALS_FILE: >-
+          ${{ steps.auth_with_sa.outputs.credentials_file_path ||
+              steps.auth_without_sa.outputs.credentials_file_path }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/isolate-credentials.py"
+    - name: Set up Cloud SDK
+      if: ${{ inputs.skip-install != 'true' }}
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      with:
+        version: ${{ inputs.version }}
+        install_components: ${{ inputs.install-components }}
+        cache: ${{ inputs.cache }}
+    - name: Use preinstalled Cloud SDK
+      if: ${{ inputs.skip-install == 'true' }}
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      with:
+        skip_install: ${{ inputs.skip-install }}
+    - name: Authenticate Docker with Artifact Registry
+      if: ${{ inputs.configure-docker == 'true' }}
+      shell: bash
+      run: |
+        gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+      env:
+        REGION: ${{ inputs.repository-region }}

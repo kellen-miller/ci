@@ -1,0 +1,38 @@
+name: Code duplication
+description: Honor repository configuration with the Rust jscpd crate's cpd executable
+inputs:
+  working-directory:
+    description: Directory containing the scan configuration
+    default: .
+  config:
+    description: Configuration path relative to working-directory
+    default: .jscpd.json
+  version:
+    description: Rust jscpd crate version
+    default: '5.4.0'
+  threshold:
+    description: Optional threshold override; empty preserves configuration
+    default: ''
+  reporters:
+    description: Optional reporters override; empty preserves configuration
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        toolchain: stable
+        rustflags: ''
+    - name: Install cpd
+      shell: bash
+      env:
+        CPD_VERSION: ${{ inputs.version }}
+      run: cargo install jscpd --version "$CPD_VERSION" --locked
+    - name: Check duplication
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CPD_CONFIG: ${{ inputs.config }}
+        CPD_THRESHOLD: ${{ inputs.threshold }}
+        CPD_REPORTERS: ${{ inputs.reporters }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"

@@ -1,0 +1,47 @@
+name: Python Build
+'on':
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory
+        type: string
+        default: .
+      artifact-name:
+        description: Name of the distribution artifact
+        type: string
+        default: dist
+    outputs:
+      run-id:
+        description: Workflow run id for artifact retrieval
+        value: ${{ jobs.build-python-artifact.outputs.run-id }}
+jobs:
+  build-python-artifact:
+    name: Build Python Artifact
+    runs-on: ubuntu-latest
+    outputs:
+      run-id: ${{ github.run_id }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-tags: 'true'
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version-file: ${{ inputs.working-directory }}/pyproject.toml
+      - name: Build Python package
+        run: uv build
+        working-directory: ${{ inputs.working-directory }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.working-directory }}/dist/
+          if-no-files-found: error
+permissions:
+  contents: read

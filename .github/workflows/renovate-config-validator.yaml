@@ -1,0 +1,47 @@
+name: Renovate Config Validator
+on:
+  workflow_call:
+    inputs:
+      config-file:
+        description: Path to the Renovate config file to validate.
+        type: string
+        default: renovate.json
+      global-config:
+        description: Validate as Renovate global config. Set false to validate as repository config.
+        type: boolean
+        default: false
+      node-version:
+        description: Node.js version used to run Renovate.
+        type: string
+        default: '24'
+      renovate-version:
+        description: Renovate package version used for validation.
+        type: string
+        default: 44.145.3
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Renovate Config Validator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Validate Renovate config
+        env:
+          CONFIG_FILE: ${{ inputs.config-file }}
+          GLOBAL_CONFIG: ${{ inputs.global-config }}
+          RENOVATE_VERSION: ${{ inputs.renovate-version }}
+        run: |
+          set -euo pipefail
+
+          args=()
+          if [[ "${GLOBAL_CONFIG}" != "true" ]]; then
+            args+=(--no-global)
+          fi
+
+          npx --yes --package "renovate@${RENOVATE_VERSION}" -- renovate-config-validator "${args[@]}" "${CONFIG_FILE}"
