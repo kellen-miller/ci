@@ -78,3 +78,21 @@ jobs:
         result = self.scan("jobs: [unterminated\n")
         self.assertEqual(result.returncode, 1)
         self.assertIn("invalid YAML", result.stdout)
+
+    def test_installed_dependencies_are_not_repository_workflows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflow = root / ".github/workflows/test.yaml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text("on: pull_request\njobs: {}\n")
+            dependency = root / ".github/actions/release/node_modules/example/test.yaml"
+            dependency.parent.mkdir(parents=True)
+            dependency.write_text("invalid: [yaml\n")
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", directory],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("(1 files)", result.stdout)

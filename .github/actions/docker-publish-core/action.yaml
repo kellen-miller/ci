@@ -1,0 +1,141 @@
+name: Docker Publish Core
+description: Build, tag, and publish a Docker image
+inputs:
+  image:
+    description: Target image name (for metadata action)
+    required: true
+  tags:
+    description: Metadata tag rules
+    required: false
+    default: |
+      type=ref,event=branch
+      type=ref,event=pr
+      type=semver,pattern={{version}}
+      type=semver,pattern={{major}}.{{minor}}
+      type=sha,format=short
+      type=raw,value=latest,enable={{is_default_branch}}
+  labels:
+    description: Metadata labels
+    required: false
+    default: ''
+  push:
+    description: Push image to registry
+    required: false
+    default: 'true'
+  tag-build:
+    description: Apply resolved Docker metadata tags directly during the build
+    required: false
+    default: 'true'
+  outputs:
+    description: Custom docker/build-push-action outputs
+    required: false
+    default: ''
+  cache-from:
+    description: Build cache source (defaults to GitHub Actions cache)
+    required: false
+    default: ''
+  cache-to:
+    description: Build cache destination (defaults to GitHub Actions cache)
+    required: false
+    default: ''
+  provenance:
+    description: Generate BuildKit provenance attestations for pushed images
+    required: false
+    default: 'true'
+  sbom:
+    description: Generate BuildKit SBOM attestations for pushed images
+    required: false
+    default: 'true'
+  registry:
+    description: Registry hostname (optional)
+    required: false
+    default: ''
+  registry-username:
+    description: Registry username (required when registry is set)
+    required: false
+    default: ''
+  registry-password:
+    description: Registry password (required when registry is set)
+    required: false
+    default: ''
+  build-secrets:
+    description: Build secrets for docker/build-push-action
+    required: false
+    default: ''
+  context:
+    description: Build context
+    required: false
+    default: .
+  target:
+    description: Dockerfile target stage
+    required: false
+    default: ''
+  platforms:
+    description: Target platforms for docker/build-push-action
+    required: false
+    default: ''
+  setup-qemu:
+    description: Install QEMU emulators before building non-native platforms
+    required: false
+    default: 'true'
+outputs:
+  tags:
+    description: Resolved image tags
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: Resolved image labels
+    value: ${{ steps.meta.outputs.labels }}
+  digest:
+    description: Pushed image digest
+    value: ${{ steps.build.outputs.digest }}
+runs:
+  using: composite
+  steps:
+    - name: Set up QEMU
+      if: ${{ inputs.setup-qemu == 'true' && inputs.platforms != '' && inputs.platforms != 'linux/amd64' }}
+      uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e
+    - id: resolve_cache
+      name: Resolve cache configuration
+      shell: bash
+      env:
+        CACHE_FROM: ${{ inputs.cache-from }}
+        CACHE_TO: ${{ inputs.cache-to }}
+        REPO: ${{ github.repository }}
+      run: |
+        bash "$GITHUB_ACTION_PATH/scripts/resolve-cache.sh"
+    - name: Log in to registry
+      if: ${{ inputs.registry != '' }}
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
+    - id: meta
+      name: Extract Docker metadata
+      uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
+      with:
+        images: ${{ inputs.image }}
+        tags: ${{ inputs.tags }}
+        labels: ${{ inputs.labels }}
+    - &id001
+      id: build
+      name: Build and push image
+      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+      env:
+        DOCKER_BUILD_RECORD_UPLOAD: 'false'
+      with:
+        push: ${{ inputs.push }}
+        cache-from: ${{ steps.resolve_cache.outputs.from }}
+        cache-to: ${{ steps.resolve_cache.outputs.to }}
+        context: ${{ inputs.context }}
+        target: ${{ inputs.target }}
+        tags: ${{ inputs.tag-build == 'true' && steps.meta.outputs.tags || '' }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: ${{ inputs.platforms }}
+        outputs: ${{ inputs.outputs }}
+        provenance: ${{ inputs.provenance }}
+        sbom: ${{ inputs.sbom }}
+        secrets: ${{ inputs.build-secrets }}
+    - *id001

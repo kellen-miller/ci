@@ -1,0 +1,30 @@
+name: Stale branch cleanup
+description: Warn before deleting stale unprotected branches without open PRs; dry-run by default
+inputs:
+  repositories:
+    description: Comma/newline-separated owner/repo targets; empty means caller repository
+    default: ''
+  stale-days:
+    description: Minimum commit age in days
+    default: 30
+  warning-days:
+    description: Minimum time after warning before deletion
+    default: 7
+  dry-run:
+    description: Report candidates without modifying branches or issues
+    default: 'true'
+  token:
+    description: Token with contents/issues write for selected repositories
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPOSITORIES: ${{ inputs.repositories }}
+        STALE_DAYS: ${{ inputs.stale-days }}
+        WARNING_DAYS: ${{ inputs.warning-days }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/cleanup.py"

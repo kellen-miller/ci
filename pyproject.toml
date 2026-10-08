@@ -1,7 +1,7 @@
 [project]
 name = "personal-ci"
 version = "0.1.0"
-description = "Reusable lint workflows and actions"
+description = "Reusable CI workflows and actions"
 requires-python = ">=3.11"
 dependencies = ["PyYAML==6.0.3"]
 

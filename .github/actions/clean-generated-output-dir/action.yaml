@@ -1,0 +1,14 @@
+name: Clean generated output
+description: Delete marked generated files and empty directories inside an explicit workspace directory
+inputs:
+  working-directory:
+    description: Workspace-relative directory to clean; repository root is rejected
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/clean.py"

@@ -2,6 +2,7 @@
 """Validate workflow references, credential persistence and explicit secret boundaries."""
 
 import argparse
+import os
 import re
 from pathlib import Path
 
@@ -60,8 +61,11 @@ def main():
     errors = []
     files = []
     for directory in (args.root / ".github/workflows", args.root / ".github/actions"):
-        files.extend(directory.rglob("*.yaml"))
-        files.extend(directory.rglob("*.yml"))
+        for current, children, names in os.walk(directory):
+            children[:] = [
+                name for name in children if name not in {"node_modules", ".venv", ".git"}
+            ]
+            files.extend(Path(current) / name for name in names if name.endswith((".yaml", ".yml")))
 
     if not files:
         parser.error("no workflow or action YAML files found")
