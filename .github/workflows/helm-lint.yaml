@@ -1,0 +1,83 @@
+name: Helm lint
+on:
+  workflow_call:
+    inputs:
+      charts-root:
+        description: Chart directory or directory containing charts
+        type: string
+        default: charts
+      values-file-pattern:
+        description: Additional values files to check alongside default values
+        type: string
+        default: values-*.yaml
+      helm-version:
+        description: Helm release
+        type: string
+        default: v4.3.0
+      validate-schemas:
+        description: Run kubeconform on every rendered values variant
+        type: boolean
+        default: true
+      kubeconform-version:
+        description: Explicit kubeconform release
+        type: string
+        default: v0.8.0
+      ignore-missing-schemas:
+        description: Explicitly allow resource kinds without a schema
+        type: boolean
+        default: false
+      schema-locations:
+        description: Newline-separated kubeconform schema locations
+        type: string
+        default: default
+      kubernetes-version:
+        description: Kubernetes schema version; empty uses kubeconform's default
+        type: string
+        default: ''
+      trivy:
+        description: Scan successfully rendered manifests with Trivy
+        type: boolean
+        default: true
+      trivy-version:
+        description: Trivy version
+        type: string
+        default: v0.75.0
+      trivy-severity:
+        description: Finding severities that fail the job
+        type: string
+        default: HIGH,CRITICAL
+      trivy-ignorefile:
+        description: Optional caller-owned ignorefile
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: kellen-miller/ci/.github/actions/helm-lint-charts@0bdade77edfa48cf4fd486946b7c750de5fb0358
+        with:
+          charts-root: ${{ inputs.charts-root }}
+          values-file-pattern: ${{ inputs.values-file-pattern }}
+          helm-version: ${{ inputs.helm-version }}
+          validate-schemas: ${{ inputs.validate-schemas }}
+          kubeconform-version: ${{ inputs.kubeconform-version }}
+          ignore-missing-schemas: ${{ inputs.ignore-missing-schemas }}
+          schema-locations: ${{ inputs.schema-locations }}
+          kubernetes-version: ${{ inputs.kubernetes-version }}
+        id: charts
+      - name: Scan rendered manifests
+        if: inputs.trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: config
+          scan-ref: ${{ steps.charts.outputs.rendered-directory }}
+          severity: ${{ inputs.trivy-severity }}
+          version: ${{ inputs.trivy-version }}
+          exit-code: '1'
+          cache: true
+          trivyignores: ${{ inputs.trivy-ignorefile }}
