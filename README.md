@@ -5,7 +5,8 @@ Reusable GitHub Actions workflows and composite actions, licensed under MIT.
 Each consumer owns its lint configuration, dependencies and PR triggers. Checks
 fail on findings and scan all relevant files, including existing issues. Generic
 code checks need only `contents: read`; PR-title validation also needs
-`pull-requests: read`. No custom secret or cloud identity is required.
+`pull-requests: read`. Dependencies come from public registries and repositories;
+no package-authentication setup, custom secret or cloud identity is required.
 
 This repository is prepared locally for `kellen-miller/ci`. It has no remote and
 has not been published. Cross-repository examples become usable after publication.
@@ -26,6 +27,7 @@ has not been published. Cross-repository examples become usable after publicatio
 | `shellcheck.yaml` | ShellCheck; configurable script glob |
 | `renovate-config-validator.yaml` | Repository config by default; global config opt-in |
 | `code-duplication.yaml` | Rust `jscpd` crate's `cpd`; repository `.jscpd.json` |
+| `ci.yaml` | This repository's PR-only lint and regression checks; not reusable |
 
 Workflow files document their inputs, defaults and tool versions. There is one
 Helm workflow; schema and security scans are explicit inputs on that workflow.
@@ -69,8 +71,7 @@ every transitive dependency.
   package named `jscpd` are different installations.
 - Reviewdog-based checks use `reporter: local`, `filter_mode: nofilter` and
   `fail_level: any`. Warnings and errors fail the job without requiring GitHub
-  check-write or PR-write permissions. These defaults work on fork PRs whose
-  dependency installation does not require private credentials.
+  check-write or PR-write permissions. These defaults work on fork PRs.
 - Workflow security validation parses YAML rather than matching comment text.
   All external action/workflow refs require full commit SHAs; Docker actions
   require SHA-256 digests; checkout must disable credential persistence.
@@ -93,14 +94,20 @@ Kubeconform release archives are checked against the publisher's SHA-256 manifes
 before installation. The installer supports Linux and macOS, amd64 and arm64.
 Missing resource schemas fail by default. Supply `schema-locations` for custom
 resources or explicitly set `ignore-missing-schemas: true`. Pin custom schema URLs
-and `kubernetes-version` when reproducibility is required. No private schema
-catalog or cloud access is implicit.
+and `kubernetes-version` when reproducibility is required.
 
-## Private dependencies
+## Actions
 
-Authenticate in the consuming repository before invoking a composite action in
-the same job. A preparation job does not share its credentials with a reusable
-workflow's separate jobs. The shared actions do not mint tokens or set Git identity.
+| Action | Purpose |
+| --- | --- |
+| `go-lint` | Set up Go; run golangci-lint, formatting and optional govulncheck |
+| `setup-node` | Resolve runtime/package manager, cache downloads, install locked dependencies |
+| `helm-lint-charts` | Set up Helm/kubeconform, lint/render charts, optionally validate schemas |
+| `validate-workflow-security` | Parse workflow/action YAML and enforce reference/credential rules |
+| `code-duplication` | Install Rust cpd and run the caller's duplication configuration |
+
+Use composite actions directly when combining checks in one job. Each action
+lives under `.github/actions/<name>/action.yaml`.
 
 ```yaml
 jobs:
@@ -112,13 +119,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # Explicit private-dependency authentication owned by this repository goes here.
       - uses: kellen-miller/ci/.github/actions/go-lint@<reviewed-action-commit>
         with:
           working-directory: backend
 ```
 
-For Node, call `.github/actions/setup-node` after authentication, then run the
+For Node, call `.github/actions/setup-node`, then run the
 repository's check/lint scripts using its `package-manager` output. For Helm and
 duplication use `.github/actions/helm-lint-charts` and
 `.github/actions/code-duplication` directly. The shared actions are available
@@ -136,7 +142,7 @@ uv run python scripts/check.py
 
 Tests run real Helm rendering, real Go formatting and real frozen npm installs.
 Additional regressions cover YAML policy decisions, checksum rejection and
-duplication failure propagation. No private repository or secret is needed.
+duplication failure propagation.
 
 When changing shared actions, commit them before updating workflow pins:
 

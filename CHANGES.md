@@ -5,7 +5,7 @@ actions, a PR-only repository validation workflow, MIT licensing and usage docs.
 
 | Area | Implemented change |
 | --- | --- |
-| Authentication | Generic checks use read-only repository access; private-package setup belongs to the caller's job. |
+| Dependencies | Public registries/repositories; no private-package authentication inputs or setup. |
 | Configuration | Go, Ruff, YAML, Terraform, Node and duplication policies remain in each consumer. |
 | Go | Normal config discovery or explicit relative path; formatting differences fail without rewriting files. |
 | Node | Lockfile detection, real runtime-file resolution, frozen installs, caller-owned pnpm policy; Yarn does not auto-edit package metadata. |
@@ -37,5 +37,5 @@ validated a real ConfigMap, rejected an unknown resource schema, and accepted th
 resource only with explicit missing-schema opt-in. Real cpd 5.4.0 rejected a
 duplicate fixture at the caller's zero threshold and respected caller exclusions.
 
-Hosted workflows and authenticated private-dependency wrappers have not run; the
-repository is local-only pending review. The workflow definitions pass actionlint.
+Hosted workflows have not run; the repository is local-only pending review.
+The workflow definitions pass actionlint.
