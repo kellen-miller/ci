@@ -24,7 +24,7 @@ jobs:
           reporter: local
           filter_mode: nofilter
           fail_level: any
-      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@c2fec0ce6c6f3c829686850dbffb9a670fc3f0be
         with:
           allow-pull-request-target: ${{ inputs.allow-pull-request-target }}
           allow-secret-inheritance: ${{ inputs.allow-secret-inheritance }}
