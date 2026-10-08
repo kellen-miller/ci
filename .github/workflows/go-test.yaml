@@ -2,6 +2,14 @@ name: Go Test
 'on':
   workflow_call:
     inputs:
+      runner:
+        description: Runner label; callers can supply their operating-system matrix.
+        type: string
+        default: ubuntu-latest
+      go-version-file:
+        description: Optional go.mod or go.work path; takes precedence over go-version.
+        type: string
+        default: ''
       go-version:
         description: Go version to use
         required: false
@@ -12,6 +20,14 @@ name: Go Test
         required: false
         default: true
         type: boolean
+      vet:
+        description: Run go vet after tests.
+        type: boolean
+        default: false
+      build-target:
+        description: Optional package path to build after tests and vet.
+        type: string
+        default: ''
       integration:
         description: Run integration tests
         required: false
@@ -25,7 +41,7 @@ name: Go Test
 jobs:
   go-test:
     name: Go Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -33,12 +49,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: ${{ inputs.go-version }}
+          go-version: ${{ inputs.go-version-file == '' && inputs.go-version || '' }}
+          go-version-file: ${{ inputs.go-version-file }}
           cache-dependency-path: ${{ inputs.working-directory }}/go.sum
       - name: Run Go unit tests
+        shell: bash
         env:
           INTEGRATION: ${{ inputs.integration }}
           RACE: ${{ inputs.race }}
+          VET: ${{ inputs.vet }}
+          BUILD_TARGET: ${{ inputs.build-target }}
         working-directory: ${{ inputs.working-directory }}
         run: |
           args=(-v)
@@ -47,5 +67,13 @@ jobs:
           fi
 
           go test "${args[@]}" ./...
+
+          if [[ "$VET" == true ]]; then
+            go vet ./...
+          fi
+
+          if [[ -n "$BUILD_TARGET" ]]; then
+            go build "$BUILD_TARGET"
+          fi
 permissions:
   contents: read

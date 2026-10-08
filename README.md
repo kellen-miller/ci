@@ -14,10 +14,11 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | Workflow | Operations |
 | --- | --- |
 | `gh-actions-lint.yaml` | actionlint plus structured workflow security checks |
-| `go-test.yaml` | Go tests with optional race and integration mode |
+| `go-test.yaml` | Go test matrices with optional race, vet and build checks |
+| `gradle-check.yaml` | Java/Gradle setup and caller-selected wrapper validation tasks |
 | `helm-lint.yaml` | Chart dependency build, lint/render, optional kubeconform and Trivy |
 | `node-build.yaml` | Frozen install plus caller build script |
-| `node-lint.yaml` | Frozen install plus caller check/lint scripts |
+| `node-lint.yaml` | Frozen install plus caller format/check/lint scripts |
 | `node-test.yaml` | Frozen install, optional Playwright, tests and artifact upload |
 | `python-build.yaml` | uv package build and directory-correct distribution upload |
 | `python-lint.yaml` | Separate Ruff format and lint jobs |
@@ -34,7 +35,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 19 reusable workflows and one repository CI workflow. Workflows remain
+There are 20 reusable workflows and one repository CI workflow. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -73,8 +74,8 @@ every transitive dependency.
   `package.json`'s `engines.node`, or Node 24. An ambiguous package-manager lockfile
   requires an explicit choice. npm, pnpm, Yarn and Bun use frozen installs.
   pnpm security-policy overrides are opt-in; empty inputs preserve repository
-  settings. `check-script` and `lint-script` default to `check` and `lint`;
-  set either to an empty string to skip it.
+  settings. `format-script` is opt-in. `check-script` and `lint-script` default to
+  `check` and `lint`; set either to an empty string to skip it.
 - Duplication checking requires an existing configuration. It preserves configured
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
   report never replaces the original failure status. The Rust crate and the npm
@@ -86,8 +87,19 @@ every transitive dependency.
   All external action/workflow refs require full commit SHAs; Docker actions
   require SHA-256 digests; checkout must disable credential persistence.
   `pull_request_target` and secret inheritance require explicit opt-in.
-  The composite action exposes those opt-ins for independently reviewed policies.
+  The composite action and reusable workflow expose those opt-ins for independently
+  reviewed policies.
   This is a small guardrail checker, not a full execution/security analyzer.
+
+Go tests accept a `runner` from the caller's OS matrix. Set `go-version-file` to
+`go.mod` or `go.work` to use the repository's toolchain requirement; it takes
+precedence over `go-version`. Race detection defaults to enabled. `vet` and
+`build-target` add vet/build checks after tests without replacing consumer policy.
+
+Gradle validation uses the consumer's committed wrapper and accepts Java version,
+distribution, working directory, runner and task arguments. Arguments are split
+on whitespace and passed directly to the wrapper; shell expressions are not
+evaluated.
 
 ## Helm validation
 

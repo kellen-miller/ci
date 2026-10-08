@@ -38,6 +38,10 @@ on:
         description: Type/framework check script; empty skips
         type: string
         default: check
+      format-script:
+        description: Optional formatting check script; empty skips.
+        type: string
+        default: ''
       lint-script:
         description: Lint script; empty skips
         type: string
@@ -51,7 +55,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: kellen-miller/ci/.github/actions/setup-node@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+      - uses: kellen-miller/ci/.github/actions/setup-node@6a0d4f6718ed6cea356a99b7b7460244a42243bd
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}
@@ -67,11 +71,16 @@ jobs:
         env:
           PM: ${{ steps.setup.outputs.package-manager }}
           CHECK_SCRIPT: ${{ inputs.check-script }}
+          FORMAT_SCRIPT: ${{ inputs.format-script }}
           LINT_SCRIPT: ${{ inputs.lint-script }}
         run: |
-          if [[ -z "$CHECK_SCRIPT" && -z "$LINT_SCRIPT" ]]; then
-            echo "At least one check or lint script is required" >&2
+          if [[ -z "$FORMAT_SCRIPT" && -z "$CHECK_SCRIPT" && -z "$LINT_SCRIPT" ]]; then
+            echo "At least one format, check or lint script is required" >&2
             exit 1
+          fi
+
+          if [[ -n "$FORMAT_SCRIPT" ]]; then
+            "$PM" run "$FORMAT_SCRIPT"
           fi
 
           if [[ -n "$CHECK_SCRIPT" ]]; then

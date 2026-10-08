@@ -1,0 +1,54 @@
+name: Gradle Check
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: Runner label for validation.
+        type: string
+        default: ubuntu-latest
+      working-directory:
+        description: Directory containing the Gradle wrapper.
+        type: string
+        default: .
+      java-version:
+        description: Java version used for validation.
+        type: string
+        default: '21'
+      distribution:
+        description: Java distribution supported by setup-java.
+        type: string
+        default: temurin
+      arguments:
+        description: Whitespace-separated wrapper arguments; shell syntax is not evaluated.
+        type: string
+        default: check
+permissions:
+  contents: read
+jobs:
+  check:
+    name: Gradle Check
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+        with:
+          distribution: ${{ inputs.distribution }}
+          java-version: ${{ inputs.java-version }}
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+        with:
+          cache-provider: basic
+      - name: Run Gradle validation
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          GRADLE_ARGUMENTS: ${{ inputs.arguments }}
+        run: |
+          read -ra arguments <<< "$GRADLE_ARGUMENTS"
+          if [[ ${#arguments[@]} -eq 0 ]]; then
+            echo "At least one Gradle argument is required" >&2
+            exit 1
+          fi
+
+          ./gradlew "${arguments[@]}"

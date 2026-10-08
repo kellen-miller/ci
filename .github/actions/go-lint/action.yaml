@@ -7,6 +7,9 @@ inputs:
   go-version:
     description: Go version or supported setup-go constraint
     default: stable
+  go-version-file:
+    description: Optional go.mod or go.work path; takes precedence over go-version
+    default: ''
   golangci-lint-version:
     description: golangci-lint version
     default: v2.14.0
@@ -24,7 +27,8 @@ runs:
   steps:
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
       with:
-        go-version: ${{ inputs.go-version }}
+        go-version: ${{ inputs.go-version-file == '' && inputs.go-version || '' }}
+        go-version-file: ${{ inputs.go-version-file }}
         cache-dependency-path: ${{ inputs.working-directory }}/go.sum
     - name: Resolve config arguments
       id: config

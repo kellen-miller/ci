@@ -36,7 +36,7 @@ runs:
     - id: cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
-        path: ~/.cache/ms-playwright
+        path: ${{ steps.resolve.outputs.cache-path }}
         key: ${{ steps.resolve.outputs.cache-key }}
     - name: Install browsers (cache miss)
       if: steps.cache.outputs.cache-hit != 'true'

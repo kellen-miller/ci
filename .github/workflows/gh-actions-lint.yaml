@@ -1,6 +1,15 @@
 name: GitHub Actions lint
 on:
   workflow_call:
+    inputs:
+      allow-pull-request-target:
+        description: Explicitly allow an independently reviewed privileged PR trigger.
+        type: boolean
+        default: false
+      allow-secret-inheritance:
+        description: Explicitly allow independently reviewed secret inheritance.
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -15,4 +24,7 @@ jobs:
           reporter: local
           filter_mode: nofilter
           fail_level: any
-      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        with:
+          allow-pull-request-target: ${{ inputs.allow-pull-request-target }}
+          allow-secret-inheritance: ${{ inputs.allow-secret-inheritance }}

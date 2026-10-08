@@ -141,7 +141,7 @@ jobs:
           persist-credentials: false
       - name: Authenticate with Google Cloud
         if: ${{ inputs.push }}
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@6a0d4f6718ed6cea356a99b7b7460244a42243bd
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
@@ -160,7 +160,7 @@ jobs:
         run: test -e "${BUILD_ARTIFACT_CHECK_PATH}"
       - id: publish
         name: Build image
-        uses: kellen-miller/ci/.github/actions/docker-publish-core@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        uses: kellen-miller/ci/.github/actions/docker-publish-core@6a0d4f6718ed6cea356a99b7b7460244a42243bd
         with:
           image: ${{ env.IMAGE }}
           context: ${{ inputs.context }}
@@ -219,7 +219,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Authenticate with Google Cloud
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@8a6be24dc3b8595b2d838cdea638f9e6683fb4d0
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@6a0d4f6718ed6cea356a99b7b7460244a42243bd
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}

@@ -9,7 +9,7 @@
 #   PLAYWRIGHT_VERSION  — explicit version override, optional. When unset the
 #                         script sniffs ./node_modules/.bin/playwright instead.
 # Writes to $GITHUB_OUTPUT:
-#   version, cache-key
+#   version, cache-key, cache-path
 
 set -euo pipefail
 
@@ -27,8 +27,19 @@ browsers_key="$(printf '%s' "${BROWSERS:-}" | tr -s '[:space:]' '-' | sed 's/^-/
 
 cache_key="playwright-${RUNNER_OS}-${RUNNER_ARCH:?}-${version}-${browsers_key}"
 
+case "$RUNNER_OS" in
+  macOS) cache_path="$HOME/Library/Caches/ms-playwright" ;;
+  Windows) cache_path="${LOCALAPPDATA:?}/ms-playwright" ;;
+  Linux) cache_path="${XDG_CACHE_HOME:-$HOME/.cache}/ms-playwright" ;;
+  *)
+    echo "::error::Unsupported Playwright runner OS: $RUNNER_OS"
+    exit 1
+    ;;
+esac
+
 {
   echo "version=$version"
   echo "cache-key=$cache_key"
+  echo "cache-path=$cache_path"
 } >> "$GITHUB_OUTPUT"
 echo "::notice::Playwright $version (cache key: $cache_key)"
