@@ -129,6 +129,7 @@ and `kubernetes-version` when reproducibility is required.
 | `code-duplication` | Rust cpd with caller configuration and preserved failure status |
 | `docker-publish-core` | Buildx/QEMU, metadata, registry login, cache, build/push and provenance |
 | `playwright-setup` | Installed-version/architecture browser cache and OS dependency setup |
+| `select-runner` | Prefer ready self-hosted capacity, otherwise select a hosted runner |
 | `resolve-github-release` | Resolve explicit or latest public GitHub release tags |
 | `gcp-gar-auth` | Caller-owned GCP OIDC auth, SDK setup and optional Docker auth |
 | `github-app-auth` | Caller-scoped App token and optional repository-local bot identity |
@@ -139,6 +140,17 @@ and `kubernetes-version` when reproducibility is required.
 
 Use composite actions directly when combining checks in one job. Each action
 lives under `.github/actions/<name>/action.yaml`.
+
+`select-runner` runs in a GitHub-hosted selection job. Pass `preferred-runner`,
+`fallback-runner` (default `ubuntu-24.04`) and a runner-status `token`; expose its
+`runner` output as a job output and use it in dependent jobs' `runs-on`.
+Runner lookup requires repository Administration read permission; the standard
+`GITHUB_TOKEN` does not provide it. Without a suitable status token, lookup errors
+emit a warning and select GitHub-hosted capacity. No token is logged.
+Selection requires an online, idle matching runner at dispatch time. Pools scaled
+to zero use hosted capacity; keep warm capacity if self-hosted preference is wanted.
+Selection cannot move an already-dispatched job after a runner disappears.
+Hosted jobs must have suitable network access and use reachable dependency sources.
 
 ```yaml
 jobs:
