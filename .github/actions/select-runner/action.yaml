@@ -1,0 +1,29 @@
+name: Select runner
+description: Prefer an online idle self-hosted runner; otherwise use a GitHub-hosted runner.
+inputs:
+  preferred-runner:
+    description: Self-hosted runner label to prefer.
+    required: true
+  fallback-runner:
+    description: GitHub-hosted runner label to use when availability cannot be confirmed.
+    default: ubuntu-24.04
+  token:
+    description: GitHub token with repository Administration read permission for runner lookup.
+    required: true
+outputs:
+  runner:
+    description: Selected runner label.
+    value: ${{ steps.select.outputs.runner }}
+  self-hosted:
+    description: Whether an online idle matching self-hosted runner was found.
+    value: ${{ steps.select.outputs.self-hosted }}
+runs:
+  using: composite
+  steps:
+    - id: select
+      shell: bash
+      env:
+        PREFERRED_RUNNER: ${{ inputs.preferred-runner }}
+        FALLBACK_RUNNER: ${{ inputs.fallback-runner }}
+        RUNNER_STATUS_TOKEN: ${{ inputs.token }}
+      run: python3 "$GITHUB_ACTION_PATH/select_runner.py"
