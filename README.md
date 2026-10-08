@@ -14,7 +14,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | Workflow | Operations |
 | --- | --- |
 | `gh-actions-lint.yaml` | actionlint plus structured workflow security checks |
-| `go-test.yaml` | Go test matrices with optional race, vet and build checks |
+| `go-test.yaml` | Go test matrices with package selection and optional race, vet and build checks |
 | `gradle-check.yaml` | Java/Gradle setup and caller-selected wrapper validation tasks |
 | `helm-lint.yaml` | Chart dependency build, lint/render, optional kubeconform and Trivy |
 | `node-build.yaml` | Frozen install plus caller build script |
