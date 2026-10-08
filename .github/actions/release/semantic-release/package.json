@@ -13,5 +13,11 @@
     "conventional-changelog-conventionalcommits": "10.4.0",
     "semantic-release": "25.0.9",
     "semver": "7.7.4"
+  },
+  "overrides": {
+    "@semantic-release/release-notes-generator": {
+      "conventional-changelog-writer": "^9.3.0",
+      "conventional-changelog-angular": "^9.4.0"
+    }
   }
 }
