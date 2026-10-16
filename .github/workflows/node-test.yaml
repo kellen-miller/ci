@@ -50,10 +50,14 @@ name: Node Test
         description: Path(s) to upload as artifact (relative to repo root). Empty skips upload.
         type: string
         default: ''
+      artifact-upload-on-success:
+        description: Upload artifacts after successful tests as well as failures.
+        type: boolean
+        default: false
       artifact-retention-days:
         description: Retention days for uploaded artifacts.
         type: number
-        default: 30
+        default: 7
 permissions:
   contents: read
 jobs:
@@ -88,7 +92,7 @@ jobs:
         run: |
           "$PM" run "$SCRIPT"
       - name: Upload artifact
-        if: ${{ !cancelled() && inputs.artifact-name != '' && inputs.artifact-path != '' }}
+        if: ${{ !cancelled() && (failure() || inputs.artifact-upload-on-success) && inputs.artifact-name != '' && inputs.artifact-path != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.artifact-name }}

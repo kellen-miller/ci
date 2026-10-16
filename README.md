@@ -19,7 +19,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `helm-lint.yaml` | Chart dependency build, lint/render, optional kubeconform and Trivy |
 | `node-build.yaml` | Frozen install plus caller build script |
 | `node-lint.yaml` | Frozen install plus caller format/check/lint scripts |
-| `node-test.yaml` | Frozen install, optional Playwright, tests and artifact upload |
+| `node-test.yaml` | Frozen install, optional Playwright, tests and failure-only artifact upload |
 | `python-build.yaml` | uv package build and directory-correct distribution upload |
 | `python-lint.yaml` | Separate Ruff format and lint jobs |
 | `python-test.yaml` | Locked uv dependency sync and pytest |
@@ -55,6 +55,11 @@ jobs:
     with:
       working-directory: backend
 ```
+
+Test artifacts configured with `artifact-name` and `artifact-path` upload only
+after failure and expire after seven days by default. Set
+`artifact-upload-on-success: true` when successful test output is needed, or
+`artifact-retention-days` to override retention.
 
 Set concurrency on each caller workflow so a new run cancels superseded checks
 for the same workflow and PR or branch, including its reusable workflow jobs.
