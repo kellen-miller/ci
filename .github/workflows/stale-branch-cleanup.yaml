@@ -1,0 +1,49 @@
+name: Stale Branch Cleanup
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Report candidates without modifying branches or issues
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: stale-branch-cleanup
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: auth
+        uses: ./.github/actions/github-app-auth
+        with:
+          client-id: ${{ vars.BRANCH_CLEANUP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BRANCH_CLEANUP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ''
+      - name: Discover owned active repositories
+        id: repositories
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          repositories=$(gh api --paginate '/installation/repositories?per_page=100' \
+            --jq '.repositories[] | select(.owner.login == env.OWNER and .archived == false and .fork == false) | .full_name')
+          {
+            echo 'names<<REPOSITORIES'
+            echo "$repositories"
+            echo 'REPOSITORIES'
+          } >> "$GITHUB_OUTPUT"
+      - name: Clean up stale branches
+        if: steps.repositories.outputs.names != ''
+        uses: ./.github/actions/stale-branch-cleanup
+        with:
+          repositories: ${{ steps.repositories.outputs.names }}
+          token: ${{ steps.auth.outputs.token }}
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}

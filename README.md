@@ -209,7 +209,16 @@ appropriate cloud bindings. Environment gates remain under consumer control.
 Cosign verification requires an exact caller-supplied signing certificate identity,
 including its workflow URL and ref; there is no organization-wide regex default.
 
-`stale-branch-cleanup` is an action with no automatic schedule. Empty `repositories`
+The `Stale Branch Cleanup` workflow scans this owner's installed repositories every
+Monday at 09:00 UTC, following Weave's weekly warning/cleanup model. Archived and
+forked repositories are excluded during discovery and checked again by the action.
+Set repository variable `BRANCH_CLEANUP_APP_CLIENT_ID` and secret
+`BRANCH_CLEANUP_APP_PRIVATE_KEY` for a GitHub App installed on the target
+repositories with `contents: write`, `issues: write`, and `pull-requests: read`.
+The schedule writes warnings and deletes eligible branches; manual runs default
+to dry-run. No eligible repositories means no cleanup action runs.
+
+`stale-branch-cleanup` is also available as a standalone action. Empty `repositories`
 means only the caller repository; explicit owner/repo targets enable multiple
 repositories. Default `dry-run: true` performs no branch/issue writes. Setting it
 false first records warnings in an issue; deletion requires an unchanged tip and
