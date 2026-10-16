@@ -13,7 +13,6 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 
 | Workflow | Operations |
 | --- | --- |
-| `changed-paths.yaml` | JSON path-group selection from complete PR diffs |
 | `gh-actions-lint.yaml` | actionlint plus structured workflow security checks |
 | `go-test.yaml` | Go test matrices with package selection and optional race, vet and build checks |
 | `gradle-check.yaml` | Java/Gradle setup and caller-selected wrapper validation tasks |
@@ -36,7 +35,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 21 reusable workflows and one repository CI workflow. Workflows remain
+There are 20 reusable workflows and one repository CI workflow. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -327,11 +326,11 @@ release only after review and passing CI.
 
 ## CI path gates
 
-`changed-paths.yaml` accepts `filters`, a JSON object of group names mapped to
-positive glob lists, and returns `changes`, the same keys mapped to booleans.
+The `changed-paths` composite action accepts `filters`, a JSON object of group
+names mapped to positive glob lists, and returns `changes`, the same keys mapped
+to booleans. Run it after checkout with `fetch-depth: 0` in the caller job.
 PR diffs use their merge base, with deletions and both rename paths included.
-Other events select every group. The composite `changed-paths` action provides
-identical selection when a job already checks out full history.
+Other events select every group. No reusable workflow wrapper is needed.
 
 Globs use Python fnmatch semantics: `*` includes slashes, and a leading `**/`
 also matches root files. Negative patterns are rejected. Detection errors fail
