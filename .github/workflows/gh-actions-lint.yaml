@@ -19,12 +19,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - id: paths
+        uses: kellen-miller/ci/.github/actions/changed-paths@097cf6c50e53d046768c2479a673ab96e3127744
+        with:
+          filters: >-
+            {"workflows":[".github/**","action.yml","action.yaml",".actionlint*","actionlint*",".shellcheckrc",".zizmor*","zizmor*"]}
       - uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a
+        if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           reporter: local
           filter_mode: nofilter
           fail_level: any
       - uses: kellen-miller/ci/.github/actions/validate-workflow-security@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           allow-pull-request-target: ${{ inputs.allow-pull-request-target }}
           allow-secret-inheritance: ${{ inputs.allow-secret-inheritance }}

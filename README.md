@@ -323,3 +323,32 @@ uv run python scripts/pin-actions.py HEAD
 The pin command refuses action changes that differ from the selected commit.
 The action snapshot must be included in the eventual pushed history. Publish and
 release only after review and passing CI.
+
+## CI path gates
+
+The `changed-paths` composite action accepts `filters`, a JSON object of group
+names mapped to positive glob lists, and returns `changes`, the same keys mapped
+to booleans. Run it after checkout with `fetch-depth: 0` in the caller job.
+PR diffs use their merge base, with deletions and both rename paths included.
+Other events select every group. No reusable workflow wrapper is needed.
+
+Globs use Python fnmatch semantics: `*` includes slashes, and a leading `**/`
+also matches root files. Negative patterns are rejected. Detection errors fail
+rather than skipping checks. Callers must run their validation on detector
+failure, using this condition on jobs that need `changes`:
+
+```yaml
+if: >-
+  !cancelled() && (needs.changes.result != 'success' ||
+  fromJSON(needs.changes.outputs.changes).code)
+```
+
+Keep required workflow triggers and check names. Include workflow files, tools,
+lockfiles, configuration, generated inputs and fixtures in each owning group.
+Manual/scheduled runs and release semantics remain independent of PR paths.
+The shared Actions lint workflow gates lint/security steps internally; its
+required check remains successful when those inputs have not changed.
+
+This repository gates individual validation phases and their expensive tool
+setup. Local `scripts/check.py` calls without `CI_CHANGED_GROUPS` still run all
+checks. The selected group map is supplied only by the CI detector.
