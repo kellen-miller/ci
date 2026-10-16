@@ -13,6 +13,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 
 | Workflow | Operations |
 | --- | --- |
+| `changed-paths.yaml` | JSON path-group selection from complete PR diffs |
 | `gh-actions-lint.yaml` | actionlint plus structured workflow security checks |
 | `go-test.yaml` | Go test matrices with package selection and optional race, vet and build checks |
 | `gradle-check.yaml` | Java/Gradle setup and caller-selected wrapper validation tasks |
@@ -35,7 +36,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 20 reusable workflows and one repository CI workflow. Workflows remain
+There are 21 reusable workflows and one repository CI workflow. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -323,3 +324,32 @@ uv run python scripts/pin-actions.py HEAD
 The pin command refuses action changes that differ from the selected commit.
 The action snapshot must be included in the eventual pushed history. Publish and
 release only after review and passing CI.
+
+## CI path gates
+
+`changed-paths.yaml` accepts `filters`, a JSON object of group names mapped to
+positive glob lists, and returns `changes`, the same keys mapped to booleans.
+PR diffs use their merge base, with deletions and both rename paths included.
+Other events select every group. The composite `changed-paths` action provides
+identical selection when a job already checks out full history.
+
+Globs use Python fnmatch semantics: `*` includes slashes, and a leading `**/`
+also matches root files. Negative patterns are rejected. Detection errors fail
+rather than skipping checks. Callers must run their validation on detector
+failure, using this condition on jobs that need `changes`:
+
+```yaml
+if: >-
+  !cancelled() && (needs.changes.result != 'success' ||
+  fromJSON(needs.changes.outputs.changes).code)
+```
+
+Keep required workflow triggers and check names. Include workflow files, tools,
+lockfiles, configuration, generated inputs and fixtures in each owning group.
+Manual/scheduled runs and release semantics remain independent of PR paths.
+The shared Actions lint workflow gates lint/security steps internally; its
+required check remains successful when those inputs have not changed.
+
+This repository gates individual validation phases and their expensive tool
+setup. Local `scripts/check.py` calls without `CI_CHANGED_GROUPS` still run all
+checks. The selected group map is supplied only by the CI detector.

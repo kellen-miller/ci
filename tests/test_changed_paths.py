@@ -76,9 +76,12 @@ class ChangedPathsTests(unittest.TestCase):
             ({"code": ["!docs/**"]}, "", ""),
             ({"code": ["src/**"]}, "bad", "bad"),
         ]:
-            with self.subTest(filters=filters), tempfile.TemporaryDirectory() as directory:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    self.detect(Path(directory), filters, base, head)
+            with (
+                self.subTest(filters=filters),
+                tempfile.TemporaryDirectory() as directory,
+                self.assertRaises(subprocess.CalledProcessError),
+            ):
+                self.detect(Path(directory), filters, base, head)
 
     def git(self, root, *args):
         return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
