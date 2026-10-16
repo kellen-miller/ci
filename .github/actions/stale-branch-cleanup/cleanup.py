@@ -57,7 +57,12 @@ def main():
         "viewer"
     ]["login"]
     for repo in repositories:
-        default = api(f"repos/{repo}")["default_branch"]
+        repository = api(f"repos/{repo}")
+        if repository["archived"] or repository["fork"]:
+            print(f"SKIP {repo} (archived or forked)")
+            continue
+
+        default = repository["default_branch"]
         issues = api(f"repos/{repo}/issues?state=open&per_page=100", paginate=True)
         reports = [
             issue

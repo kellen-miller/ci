@@ -104,7 +104,9 @@ if method != 'GET' and endpoint != 'graphql':
     with open(os.environ['MUTATIONS'], 'a') as log:
         log.write(json.dumps({'endpoint': endpoint, 'method': method, 'body': body}) + '\\n')
 if endpoint == 'graphql': result = {'data': {'viewer': {'login': 'ci[bot]'}}}
-elif endpoint == 'repos/example/project': result = {'default_branch': 'main'}
+elif endpoint == 'repos/example/project':
+    metadata = fixture.get('repository', {'archived': False, 'fork': False})
+    result = {'default_branch': 'main', **metadata}
 elif '/issues?' in endpoint: result = fixture['issues']
 elif '/branches?' in endpoint: result = fixture['branches']
 elif '/branches/' in endpoint:
@@ -172,3 +174,17 @@ print(json.dumps([result] if '--slurp' in sys.argv else result))
                     self.assertEqual(len(deletes), 0 if changed else 1)
                     if deletes:
                         self.assertTrue(deletes[0]["endpoint"].endswith("/heads/stale"))
+
+            for archived, fork in [(True, False), (False, True), (True, True)]:
+                with self.subTest(archived=archived, fork=fork):
+                    fixture["repository"] = {"archived": archived, "fork": fork}
+                    # Any branch/issue access fails: skipped repos must stop at metadata.
+                    fixture.pop("branches", None)
+                    fixture.pop("issues", None)
+                    fixture_path.write_text(json.dumps(fixture))
+                    mutations.write_text("")
+                    result = subprocess.run(
+                        ["python3", script], env=env, check=True, capture_output=True, text=True
+                    )
+                    self.assertIn("SKIP example/project", result.stdout)
+                    self.assertEqual(mutations.read_text(), "")
