@@ -1,0 +1,22 @@
+name: Changed paths
+description: Select CI groups from a complete PR diff; select all groups on other events.
+inputs:
+  filters:
+    description: JSON object mapping group names to positive glob patterns. A star matches slashes; double-star slash also matches the repository root.
+    required: true
+outputs:
+  changes:
+    description: JSON object mapping each group name to a boolean.
+    value: ${{ steps.detect.outputs.changes }}
+runs:
+  using: composite
+  steps:
+    - id: detect
+      shell: bash
+      env:
+        FILTERS: ${{ inputs.filters }}
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        DETECTOR: ${{ github.action_path }}/detect.py
+      run: python3 "$DETECTOR"
