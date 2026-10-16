@@ -40,6 +40,13 @@ where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
+On pull requests, the Renovate validator skips Node setup and validation unless
+the selected `config-file`, `default.json`, or a caller workflow changes. It
+compares the PR head against its merge base, including deletions and renames.
+The check still reports success when validation is skipped, preserving required
+checks. Non-PR calls always validate. Changes to remotely inherited presets must
+be validated in the repository that owns them.
+
 ```yaml
 name: Test
 on:
