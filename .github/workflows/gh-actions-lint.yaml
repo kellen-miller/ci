@@ -26,13 +26,13 @@ jobs:
           filters: >-
             {"workflows":[".github/**","action.yml","action.yaml",".actionlint*","actionlint*",".shellcheckrc",".zizmor*","zizmor*"]}
       - uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a
-        if: fromJSON(steps.paths.outputs.changes).workflows
+        if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           reporter: local
           filter_mode: nofilter
           fail_level: any
       - uses: kellen-miller/ci/.github/actions/validate-workflow-security@6a0d4f6718ed6cea356a99b7b7460244a42243bd
-        if: fromJSON(steps.paths.outputs.changes).workflows
+        if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           allow-pull-request-target: ${{ inputs.allow-pull-request-target }}
           allow-secret-inheritance: ${{ inputs.allow-secret-inheritance }}
