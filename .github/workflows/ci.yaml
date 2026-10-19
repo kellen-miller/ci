@@ -101,6 +101,13 @@ jobs:
         with:
           go-version: stable
           cache: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python) }}
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          cache: false
+          rustflags: ''
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python) }}
         with:

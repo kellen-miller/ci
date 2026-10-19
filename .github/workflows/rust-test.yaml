@@ -1,0 +1,58 @@
+name: Rust Test
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing Cargo.toml and Cargo.lock
+        type: string
+        default: .
+      runner:
+        description: Runner label; callers can supply their operating-system matrix
+        type: string
+        default: ubuntu-latest
+      toolchain:
+        description: Empty honors rust-toolchain.toml or rust-toolchain in working-directory, otherwise stable
+        type: string
+        default: ''
+      build:
+        description: Build all workspace targets after tests
+        type: boolean
+        default: false
+      build-release:
+        description: Use the release profile for the optional build
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Rust Test
+    runs-on: ${{ inputs.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          rust-src-dir: ${{ inputs.working-directory }}
+          cache: true
+          rustflags: ''
+      - name: Run Rust tests
+        run: cargo test --locked --workspace --all-targets --all-features
+      - name: Build Rust workspace
+        if: inputs.build
+        env:
+          BUILD_RELEASE: ${{ inputs.build-release }}
+        run: |
+          args=(--locked --workspace --all-targets --all-features)
+          if [[ "$BUILD_RELEASE" == true ]]; then
+            args+=(--release)
+          fi
+
+          cargo build "${args[@]}"

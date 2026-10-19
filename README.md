@@ -23,6 +23,8 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `python-build.yaml` | uv package build and directory-correct distribution upload |
 | `python-lint.yaml` | Separate Ruff format and lint jobs |
 | `python-test.yaml` | Locked uv dependency sync and pytest |
+| `rust-lint.yaml` | Cargo formatting and strict Clippy across all workspace targets and features |
+| `rust-test.yaml` | Locked workspace tests and optional debug/release build |
 | `renovate-config-validator.yaml` | Repository or global Renovate config validation |
 | `terraform-lint.yaml` | Terraform formatting, TFLint and optional Trivy |
 | `terraform-test.yaml` | Module test and environment validation matrices |
@@ -35,7 +37,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 20 reusable workflows and one repository CI workflow. Workflows remain
+There are 22 reusable workflows and one repository CI workflow. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -118,6 +120,16 @@ Go tests accept a `runner` from the caller's OS matrix. Set `go-version-file` to
 `go.mod` or `go.work` to use the repository's toolchain requirement; it takes
 precedence over `go-version`. Race detection defaults to enabled. `vet` and
 `build-target` add vet/build checks after tests without replacing consumer policy.
+
+Rust workflows accept `working-directory`, `runner` and `toolchain`. Empty
+`toolchain` reads `rust-toolchain.toml` or `rust-toolchain` in that directory,
+falling back to stable. Setup caches Cargo dependencies and build output for that
+workspace. Commit `Cargo.lock`; Clippy, tests and builds use `--locked`,
+`--workspace`, `--all-targets` and `--all-features`. The lint workflow checks
+formatting without rewriting and denies Clippy warnings. The test workflow's
+`build: true` adds a build after tests; `build-release: true` selects the release
+profile for that build. Call the test workflow from a caller OS/toolchain matrix
+when broader coverage is needed.
 
 Gradle validation uses the consumer's committed wrapper and accepts Java version,
 distribution, working directory, runner and task arguments. Arguments are split
@@ -297,7 +309,8 @@ Keep consumer policy and configuration in the consuming repository.
 
 ## Local validation
 
-Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go and Node/npm.
+Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go, Node/npm
+and Rust with `rustfmt` and `clippy`.
 The repository's own CI installs its required tools and runs the same command:
 
 ```bash
@@ -305,7 +318,8 @@ uv sync --locked
 uv run python scripts/check.py
 ```
 
-Tests run real Helm rendering, real Go formatting and real frozen npm installs.
+Tests run real Helm rendering, Go formatting, frozen npm installs, and Cargo
+formatting, Clippy, tests and debug/release builds.
 Additional regressions cover YAML policy, checksum rejection, duplication failures,
 generated-file cleanup, cache overrides and branch warning/deletion boundaries.
 Release tests use temporary local Git repositories, including real semantic-release

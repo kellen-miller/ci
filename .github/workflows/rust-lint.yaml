@@ -1,0 +1,42 @@
+name: Rust Lint
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing Cargo.toml and Cargo.lock
+        type: string
+        default: .
+      runner:
+        description: Runner label; callers can supply their operating-system matrix
+        type: string
+        default: ubuntu-latest
+      toolchain:
+        description: Empty honors rust-toolchain.toml or rust-toolchain in working-directory, otherwise stable
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  lint:
+    name: Rust Lint
+    runs-on: ${{ inputs.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          rust-src-dir: ${{ inputs.working-directory }}
+          cache: true
+          rustflags: ''
+          components: rustfmt, clippy
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
