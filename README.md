@@ -23,6 +23,8 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `python-build.yaml` | uv package build and directory-correct distribution upload |
 | `python-lint.yaml` | Separate Ruff format and lint jobs |
 | `python-test.yaml` | Locked uv dependency sync and pytest |
+| `rust-lint.yaml` | Cargo formatting and strict workspace Clippy through the shared action |
+| `rust-test.yaml` | Locked workspace tests, doctests and optional debug/release build |
 | `renovate-config-validator.yaml` | Repository or global Renovate config validation |
 | `terraform-lint.yaml` | Terraform formatting, TFLint and optional Trivy |
 | `terraform-test.yaml` | Module test and environment validation matrices |
@@ -35,9 +37,10 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 20 reusable workflows and one repository CI workflow. Workflows remain
-where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
-have been removed: use those actions directly. Python lint keeps separate format
+There are 22 reusable workflows and one repository CI workflow. Workflows remain
+where they coordinate multiple operations or jobs. Rust offers reusable jobs
+and a composite action for callers with custom setup ordering. Other
+checkout-plus-action wrappers have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
 On pull requests, the Renovate validator skips Node setup and validation unless
@@ -118,6 +121,17 @@ Go tests accept a `runner` from the caller's OS matrix. Set `go-version-file` to
 `go.mod` or `go.work` to use the repository's toolchain requirement; it takes
 precedence over `go-version`. Race detection defaults to enabled. `vet` and
 `build-target` add vet/build checks after tests without replacing consumer policy.
+
+Rust workflows accept `working-directory`, `runner` and `toolchain`. They
+check out the caller without persisted credentials, then invoke a pinned version
+of the shared `rust-check` action. Empty `toolchain` discovers the caller's
+Rust toolchain file in `working-directory`, falling back to stable. Commit
+`Cargo.lock`; commands resolve dependencies with `--locked`. The lint workflow
+selects `fmt clippy`; the test workflow selects `test`, adding `build` when
+`build: true`. `build-release: true` chooses release for that optional build.
+Both use all features. Call these workflows from a caller OS/toolchain matrix
+for broader coverage, or use the action directly when project dependencies must
+be prepared before Cargo checks. The command contract is under Rust validation.
 
 Gradle validation uses the consumer's committed wrapper and accepts Java version,
 distribution, working directory, runner and task arguments. Arguments are split
@@ -352,9 +366,9 @@ uv run python scripts/check.py
 
 Tests run real Helm rendering, real Go formatting and real frozen npm installs.
 Rust regressions invoke the actual check script with a recording Cargo stub and
-an offline, dependency-free temporary crate. The real crate runs formatting,
-Clippy, all-target tests, doctests and build, and verifies bad formatting fails
-without rewriting source. It generates its lockfile with
+offline, dependency-free temporary library and binary packages. They run
+formatting, Clippy, all-target tests, doctests and debug/release builds. Regression
+cases check nonmutating format failure, Clippy warnings and failing tests. It generates its lockfile with
 `cargo generate-lockfile --offline`; tests never install Rust toolchains/components
 or download crate dependencies. Run just these tests with
 `uv run python -m unittest discover -s tests -p test_rust_check.py -v`.
