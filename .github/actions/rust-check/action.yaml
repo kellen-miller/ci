@@ -1,0 +1,44 @@
+name: Rust check
+description: Run locked Cargo workspace checks using Bash, Python 3 and caller configuration
+inputs:
+  setup-toolchain:
+    description: Set up Rust and cache; false requires the caller to prepare Rust first
+    default: 'true'
+  working-directory:
+    description: Cargo workspace directory, relative to the repository root
+    default: .
+  toolchain:
+    description: Rust toolchain; empty discovers the caller's rust-toolchain.toml or uses stable
+    default: ''
+  checks:
+    description: Space-separated checks in execution order; fmt, clippy, test and build
+    default: fmt clippy test build
+  all-features:
+    description: Enable all features for clippy, test and build
+    default: 'true'
+  build-profile:
+    description: Cargo build profile; dev or release
+    default: dev
+  cache-key:
+    description: Optional additional cache key for consumer matrices
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      if: ${{ inputs.setup-toolchain == 'true' }}
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        rust-src-dir: ${{ inputs.working-directory }}
+        components: rustfmt,clippy
+        rustflags: ''
+        cache-key: ${{ inputs.cache-key }}
+    - name: Check Rust workspace
+      shell: bash
+      env:
+        SETUP_TOOLCHAIN: ${{ inputs.setup-toolchain }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CHECKS: ${{ inputs.checks }}
+        ALL_FEATURES: ${{ inputs.all-features }}
+        BUILD_PROFILE: ${{ inputs.build-profile }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"

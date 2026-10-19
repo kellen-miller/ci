@@ -146,6 +146,7 @@ and `kubernetes-version` when reproducibility is required.
 | Action | Purpose |
 | --- | --- |
 | `go-lint` | Go setup, golangci-lint, formatting and optional govulncheck |
+| `rust-check` | Rust setup/cache and locked workspace formatting, Clippy, tests and build |
 | `setup-node` | Runtime/package-manager detection, cache and frozen install |
 | `helm-lint-charts` | Chart dependency build, lint/render and optional schema validation |
 | `validate-workflow-security` | Structured action reference and credential policy checks |
@@ -195,6 +196,49 @@ repository's check/lint scripts using its `package-manager` output. For Helm and
 duplication use `.github/actions/helm-lint-charts` and
 `.github/actions/code-duplication` directly. The shared actions are available
 without the whole-job wrappers.
+
+## Rust validation
+
+After checkout, use `.github/actions/rust-check` directly in the consumer's job:
+
+```yaml
+- uses: kellen-miller/ci/.github/actions/rust-check@<reviewed-action-commit>
+  with:
+    working-directory: backend
+    checks: fmt clippy test build
+```
+
+| Input | Default | Contract |
+| --- | --- | --- |
+| `setup-toolchain` | `'true'` | Set up Rust and its cache; `'false'` requires Rust, rustfmt and Clippy already prepared by the caller |
+| `working-directory` | `.` | Cargo workspace directory relative to the checkout |
+| `toolchain` | empty | Discover `rust-toolchain.toml` or `rust-toolchain` in that directory; otherwise stable |
+| `checks` | `fmt clippy test build` | Space-separated checks in execution order; no empty, unknown or duplicate selections |
+| `all-features` | `'true'` | Add `--all-features` to Clippy, tests and build; `'false'` preserves Cargo's default feature selection |
+| `build-profile` | `dev` | Build profile, either `dev` or `release`; does not change the Clippy/test profile |
+| `cache-key` | empty | Additional upstream cache key for consumer matrices |
+
+The pinned `actions-rust-lang/setup-rust-toolchain` installs rustfmt and Clippy,
+discovers the caller's toolchain using `rust-src-dir`, and caches that workspace,
+including failed runs. An explicit `toolchain` overrides file discovery. Empty
+upstream `rustflags` preserves caller Rust flags. No Cargo lint settings or rustfmt
+configuration are downloaded or replaced.
+
+The action requires Bash and Python 3, available on GitHub-hosted Linux and macOS
+runners. The script validates checks, boolean and profile before running Cargo, rejects
+multiline script inputs, and stops on the first failure with its exit status.
+Formatting runs `cargo fmt --all -- --check` without rewriting files. Every
+dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
+Clippy adds `--all-targets -- -D warnings`. Tests use `--all-targets`, then `--doc`
+when locked Cargo metadata identifies a workspace target with doctests enabled.
+Binary-only workspaces skip that second command; metadata failures fail the check.
+Build uses `--all-targets` and `--profile dev` or `--profile release`.
+
+Consumers retain firmware targets, CAN checks, cross-linkers, code generation and
+other project-specific setup. When that setup requires Rust earlier in the job,
+use the upstream setup action there and pass `setup-toolchain: 'false'` here;
+`toolchain` and `cache-key` then have no effect. This avoids a second setup/cache
+registration while keeping Cargo checks after the required dependencies.
 
 ## Releases, publishing and maintenance
 
@@ -297,7 +341,8 @@ Keep consumer policy and configuration in the consuming repository.
 
 ## Local validation
 
-Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go and Node/npm.
+Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go, Node/npm and
+Rust with the `rustfmt` and `clippy` components already installed.
 The repository's own CI installs its required tools and runs the same command:
 
 ```bash
@@ -306,6 +351,13 @@ uv run python scripts/check.py
 ```
 
 Tests run real Helm rendering, real Go formatting and real frozen npm installs.
+Rust regressions invoke the actual check script with a recording Cargo stub and
+an offline, dependency-free temporary crate. The real crate runs formatting,
+Clippy, all-target tests, doctests and build, and verifies bad formatting fails
+without rewriting source. It generates its lockfile with
+`cargo generate-lockfile --offline`; tests never install Rust toolchains/components
+or download crate dependencies. Run just these tests with
+`uv run python -m unittest discover -s tests -p test_rust_check.py -v`.
 Additional regressions cover YAML policy, checksum rejection, duplication failures,
 generated-file cleanup, cache overrides and branch warning/deletion boundaries.
 Release tests use temporary local Git repositories, including real semantic-release
