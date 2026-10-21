@@ -11,6 +11,38 @@ POLICY = ACTION.parents[2] / "config/golangci.yaml"
 
 
 class GoLintTests(unittest.TestCase):
+    def test_wasm_entrypoint_init_exception_does_not_cover_other_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "go.mod").write_text("module example.com/fixture\n\ngo 1.24\n")
+            for target in ("wasm", "native"):
+                package = project / "cmd" / target
+                package.mkdir(parents=True)
+                (package / "main.go").write_text(
+                    "package main\n\nfunc init() {}\n\nfunc main() {}\n"
+                )
+
+            (project / "cmd/wasm/extra.go").write_text("package main\n\nfunc init() {}\n")
+            result = subprocess.run(
+                [
+                    "golangci-lint",
+                    "run",
+                    "--allow-parallel-runners",
+                    "--enable-only",
+                    "gochecknoinits",
+                    "--config",
+                    str(POLICY),
+                ],
+                cwd=project,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("cmd/native/main.go:", result.stdout)
+            self.assertIn("cmd/wasm/extra.go:", result.stdout)
+            self.assertNotIn("cmd/wasm/main.go:", result.stdout)
+
     def test_external_shared_policy_checks_consumer_module_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

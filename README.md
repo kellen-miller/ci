@@ -92,6 +92,9 @@ every transitive dependency.
   action revision. Set `config` to a path relative to `working-directory` for an
   explicit replacement. Both checks use the same resolver and policy. Project
   configs are not discovered implicitly, and formatting checks do not rewrite files.
+  The policy permits `init` in `cmd/wasm/main.go` for WASI shared-library callback
+  initialization: that build mode does not execute `main`. Other entrypoints and
+  other files retain the general restriction on `init` functions.
 - Node resolves an explicit runtime, then `.node-version`, `.nvmrc`,
   `package.json`'s `engines.node`, or Node 24. An ambiguous package-manager lockfile
   requires an explicit choice. npm, pnpm, Yarn and Bun use frozen installs.
