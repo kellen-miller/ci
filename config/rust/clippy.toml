@@ -1,4 +1,4 @@
-# These configure checks selected in Cargo.toml; they do not enable checks.
+# These configure checks selected in lints.toml; they do not enable checks.
 
 # Starting limits for cognitive complexity and function length.
 cognitive-complexity-threshold = 20

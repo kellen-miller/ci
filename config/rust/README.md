@@ -1,47 +1,50 @@
-# Rust policy preset
+# Rust policy
 
-Optional Rust lint and formatting policy. Review and commit the settings in
-each consumer. The shared `rust-check` action uses the consumer's
-configuration and does not download or install this preset.
+The shared `rust-check` action applies this policy by default. The action and
+policy come from the same pinned revision; consumers do not copy configuration
+or add lint tables to Cargo manifests.
 
-## Adopt the preset
+## Run the policy
 
-1. Merge `Cargo.lints.toml` into the package's `Cargo.toml`; it is a fragment,
-   not a standalone manifest. It selects the lint levels.
-2. Copy `clippy.toml` and `rustfmt.toml` to the Cargo workspace root. The former
-   sets thresholds and test exceptions; the latter sets formatting.
-3. Pin a project toolchain, then run the existing shared action or its commands:
+After checkout, invoke the shared action:
+
+```yaml
+- uses: kellen-miller/ci/.github/actions/rust-check@<reviewed-action-commit>
+  with:
+    checks: fmt clippy test build
+```
+
+The script reads `lints.toml` and passes compiler and Clippy lint levels as
+arguments. Groups precede individual lints in that file so later entries can
+refine group settings. Valid levels are `allow`, `warn`, `deny`, and `forbid`.
+It sets `CLIPPY_CONF_DIR` to this directory and passes an explicit rustfmt config
+path. These settings apply to every selected workspace member without Cargo
+lint inheritance. Normal Rust source-attribute precedence still applies.
+
+Project `clippy.toml` and `rustfmt.toml` files do not replace these defaults.
+For an explicit replacement, set `policy-directory` to a directory relative to
+`working-directory` containing `lints.toml`, `clippy.toml`, and `rustfmt.toml`.
+The override replaces the policy; configurations are not merged. Missing required
+files and invalid lint-level entries fail before any Cargo command runs. Clippy
+and rustfmt validate their own configuration files.
+
+Local checks can invoke the same script from an existing policy checkout:
 
 ```bash
-cargo fmt --all -- --check
-cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
-cargo test --locked --workspace --all-features --all-targets
+SETUP_TOOLCHAIN=false WORKING_DIRECTORY=. CHECKS='fmt clippy' \
+  bash /path/to/ci/.github/actions/rust-check/check.sh
 ```
+
+Use Bash, Python 3.11+, and Cargo with rustfmt and Clippy installed. Pin the
+checkout to the same revision as CI. The script does not install a local
+toolchain or rewrite project files. Native `cargo clippy` and `cargo fmt`
+commands alone do not load this external policy.
 
 Commit `Cargo.lock`. If features conflict, set the action's `all-features` input
 to `'false'` and supply project-specific feature checks. Cargo supplies rustfmt's
 parser edition; the preset pins formatting style to 2024. The supplied configuration
 is exercised with stable Rust in repository tests. Older pinned toolchains
 may lack options or lints and need an upgrade or a reviewed policy adjustment.
-
-For a multi-package workspace, merge the fragment at the workspace root,
-renaming `[lints.rust]` and `[lints.clippy]` to `[workspace.lints.rust]` and
-`[workspace.lints.clippy]`. Every member, including a root package if present,
-must explicitly inherit:
-
-```toml
-[lints]
-workspace = true
-```
-
-Reconcile existing member lint tables first: members cannot combine workspace
-inheritance with their own lint entries. A member without inheritance does not
-receive the shared policy.
-
-Cargo has no native external include for these lint tables. Keep reviewed copies
-of the tables and config files in consumers, recording the source commit when
-adopting them. A future synchronization check can report drift without rewriting
-tracked files during linting. `clippy.toml` alone does not enable optional checks.
 
 ## Policy coverage
 
@@ -89,5 +92,4 @@ The width is a formatting target, not a strict limit on every comment or string.
 - [Clippy threshold and exception settings](https://doc.rust-lang.org/clippy/lint_configuration.html)
 - [Individual Clippy checks](https://clippy.rust-lang.org/master/index.html)
 - [Cargo lint tables](https://doc.rust-lang.org/cargo/reference/manifest.html#the-lints-section)
-- [Workspace inheritance](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-lints-table)
 - [rustfmt options and stability](https://github.com/rust-lang/rustfmt/blob/master/Configurations.md)

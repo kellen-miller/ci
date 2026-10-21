@@ -1,13 +1,10 @@
-import json
 import os
-import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PRESET = ROOT / "config/rust"
 ACTION = ROOT / ".github/actions/rust-check/check.sh"
 PACKAGE = '[package]\nname = "lint_fixture"\nversion = "0.1.0"\nedition = "2024"\n'
 VALID_SOURCE = """/// Parse a count.
@@ -54,26 +51,23 @@ pub fn unfinished() {
 
 
 class RustLintPolicyTests(unittest.TestCase):
-    def test_policy_works_with_shared_action_and_workspace_inheritance(self):
+    def test_shared_policy_enforces_package_and_workspace_without_manifest_lints(self):
         for workspace in (False, True):
             with self.subTest(workspace=workspace), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 project = root / "project"
                 package = project / "app" if workspace else project
                 (package / "src").mkdir(parents=True)
-                policy = (PRESET / "Cargo.lints.toml").read_text()
                 if workspace:
-                    policy = policy.replace("[lints.", "[workspace.lints.")
                     (project / "Cargo.toml").write_text(
-                        '[workspace]\nmembers = ["app"]\nresolver = "3"\n\n' + policy
+                        '[workspace]\nmembers = ["app"]\nresolver = "3"\n'
                     )
-                    (package / "Cargo.toml").write_text(PACKAGE + "\n[lints]\nworkspace = true\n")
-                else:
-                    (package / "Cargo.toml").write_text(PACKAGE + "\n" + policy)
 
-                for name in ("clippy.toml", "rustfmt.toml"):
-                    shutil.copyfile(PRESET / name, project / name)
-
+                (package / "Cargo.toml").write_text(PACKAGE)
+                # Conflicting project configs must not override the bundled policy.
+                (project / "clippy.toml").write_text("allow-unwrap-in-tests = false\n")
+                (project / "rustfmt.toml").write_text("max_width = 20\n")
+                preserved = {path: path.read_bytes() for path in project.rglob("*.toml")}
                 source = package / "src/lib.rs"
                 source.write_text(VALID_SOURCE)
                 environment = {
@@ -105,42 +99,33 @@ class RustLintPolicyTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("test_unwrap_and_expect_are_allowed ... ok", result.stdout)
                 self.assertEqual(source.read_text(), VALID_SOURCE)
+                for path, contents in preserved.items():
+                    self.assertEqual(path.read_bytes(), contents)
 
-                source.write_text(INVALID_SOURCE)
+                source.write_text(
+                    INVALID_SOURCE
+                    + "\npub fn long_lifecycle() {\n"
+                    + "    std::hint::black_box(0_u8);\n" * 82
+                    + "}\n"
+                )
                 result = subprocess.run(
-                    [
-                        "cargo",
-                        "clippy",
-                        "--locked",
-                        "--workspace",
-                        "--all-features",
-                        "--all-targets",
-                        "--message-format=json",
-                        "--",
-                        "-D",
-                        "warnings",
-                    ],
-                    cwd=project,
-                    env=environment,
+                    ["bash", str(ACTION)],
+                    env={**environment, "CHECKS": "clippy"},
                     capture_output=True,
                     text=True,
                     check=False,
                 )
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-                diagnostics = [json.loads(line) for line in result.stdout.splitlines()]
-                codes = {
-                    item["message"]["code"]["code"]
-                    for item in diagnostics
-                    if item["reason"] == "compiler-message" and item["message"].get("code")
-                }
-                self.assertLessEqual(
-                    {
-                        "clippy::unwrap_used",
-                        "clippy::expect_used",
-                        "clippy::let_underscore_must_use",
-                        "clippy::unused_result_ok",
-                        "clippy::dbg_macro",
-                        "clippy::todo",
-                    },
-                    codes,
-                )
+                for lint in (
+                    "unwrap_used",
+                    "expect_used",
+                    "let_underscore_must_use",
+                    "unused_result_ok",
+                    "dbg_macro",
+                    "todo",
+                    "too_many_lines",
+                ):
+                    self.assertIn(lint, result.stderr)
+
+                for path, contents in preserved.items():
+                    self.assertEqual(path.read_bytes(), contents)

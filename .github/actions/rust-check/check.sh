@@ -6,8 +6,9 @@ WORKING_DIRECTORY="${WORKING_DIRECTORY-.}"
 CHECKS="${CHECKS-fmt clippy test build}"
 ALL_FEATURES="${ALL_FEATURES-true}"
 BUILD_PROFILE="${BUILD_PROFILE-dev}"
+POLICY_DIRECTORY="${POLICY_DIRECTORY-}"
 
-for value in "$SETUP_TOOLCHAIN" "$WORKING_DIRECTORY" "$CHECKS" "$ALL_FEATURES" "$BUILD_PROFILE"; do
+for value in "$SETUP_TOOLCHAIN" "$WORKING_DIRECTORY" "$CHECKS" "$ALL_FEATURES" "$BUILD_PROFILE" "$POLICY_DIRECTORY"; do
   if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
     echo 'Rust check inputs must be single-line values' >&2
     exit 1
@@ -62,14 +63,57 @@ if [[ "$ALL_FEATURES" == true ]]; then
   metadata_args+=(--all-features)
 fi
 
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd -- "$WORKING_DIRECTORY"
+
+if [[ "$selected_checks" == *' fmt '* || "$selected_checks" == *' clippy '* ]]; then
+  policy_directory="${POLICY_DIRECTORY:-$script_directory/../../../config/rust}"
+  policy_directory="$(cd -- "$policy_directory" && pwd)"
+fi
+
+if [[ "$selected_checks" == *' fmt '* && ! -f "$policy_directory/rustfmt.toml" ]]; then
+  echo "Missing Rust formatting policy: $policy_directory/rustfmt.toml" >&2
+  exit 1
+fi
+
+lint_args=()
+if [[ "$selected_checks" == *' clippy '* ]]; then
+  if [[ ! -f "$policy_directory/clippy.toml" ]]; then
+    echo "Missing Clippy configuration: $policy_directory/clippy.toml" >&2
+    exit 1
+  fi
+
+  lint_flags="$(python3 - "$policy_directory/lints.toml" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+policy = tomllib.loads(Path(sys.argv[1]).read_text())
+levels = {"allow": "-A", "warn": "-W", "deny": "-D", "forbid": "-F"}
+if set(policy) != {"rust", "clippy"} or not all(policy.values()):
+    raise SystemExit("Rust policy must contain nonempty rust and clippy lint tables")
+
+for namespace, lints in policy.items():
+    for name, level in lints.items():
+        if level not in levels or not name.isidentifier():
+            raise SystemExit(f"Invalid Rust lint policy entry: {namespace}.{name}")
+
+        print(levels[level])
+        print(f"clippy::{name}" if namespace == "clippy" else name)
+PY
+)"
+  while IFS= read -r argument; do
+    lint_args+=("$argument")
+  done <<< "$lint_flags"
+fi
+
 for check in "${checks[@]}"; do
   case "$check" in
     fmt)
-      cargo fmt --all -- --check
+      cargo fmt --all -- --check --config-path "$policy_directory/rustfmt.toml"
       ;;
     clippy)
-      cargo clippy "${workspace_args[@]}" --all-targets -- -D warnings
+      CLIPPY_CONF_DIR="$policy_directory" cargo clippy "${workspace_args[@]}" --all-targets -- "${lint_args[@]}" -D warnings
       ;;
     test)
       cargo test "${workspace_args[@]}" --all-targets

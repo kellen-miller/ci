@@ -1,5 +1,5 @@
 name: Go lint
-description: Run Go lint, formatting and vulnerability checks with caller-owned config
+description: Run Go lint, formatting and vulnerability checks with shared policy
 inputs:
   working-directory:
     description: Directory containing go.mod
@@ -12,9 +12,9 @@ inputs:
     default: ''
   golangci-lint-version:
     description: golangci-lint version
-    default: v2.14.0
+    default: v2.15.0
   config:
-    description: Optional config path relative to working-directory; empty uses normal discovery
+    description: Optional override relative to working-directory; empty uses this action revision's bundled policy
     default: ''
   vulnerability-check:
     description: Run govulncheck
@@ -37,7 +37,7 @@ runs:
       env:
         LINT_CONFIG: ${{ inputs.config }}
       run: |
-        python3 "$GITHUB_ACTION_PATH/config.py"
+        python3 "$GITHUB_ACTION_PATH/config.py" --github-output
     - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
       with:
         version: ${{ inputs.golangci-lint-version }}

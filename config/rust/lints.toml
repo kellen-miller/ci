@@ -1,16 +1,13 @@
-# Merge these tables into a single-package Cargo.toml.
-# For a multi-package workspace, use [workspace.lints.rust] and
-# [workspace.lints.clippy] here, then [lints] workspace = true in EACH package.
-# Thresholds and exceptions live in the accompanying clippy.toml.
+# Read by the shared Rust check script. Groups precede individual lints.
 
-[lints.rust]
+[rust]
 unsafe_op_in_unsafe_fn = "deny"
 unused_must_use = "deny"
 non_ascii_idents = "warn"
 unreachable_pub = "warn"
 
-[lints.clippy]
-all = { level = "warn", priority = -1 }
+[clippy]
+all = "warn"
 
 # Readable control flow. Thresholds are starting points, not design targets.
 cognitive_complexity = "warn"
