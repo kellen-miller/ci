@@ -453,6 +453,113 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("test result: FAILED", result.stdout)
 
+    def test_cohesive_wire_mapping_keeps_a_function_length_limit(self):
+        (self.project / "src").mkdir()
+        (self.project / "Cargo.toml").write_text(
+            '[package]\nname="wire_fixture"\nversion="0.1.0"\nedition="2021"\n'
+        )
+        environment = {
+            **os.environ,
+            "CARGO_HOME": str(self.root / "cargo-home"),
+            "CARGO_TARGET_DIR": str(self.root / "target"),
+            "CARGO_NET_OFFLINE": "true",
+            "RUSTUP_AUTO_INSTALL": "0",
+            "SETUP_TOOLCHAIN": "false",
+            "WORKING_DIRECTORY": str(self.project),
+            "CHECKS": "clippy",
+        }
+        source = self.project / "src/lib.rs"
+        for variants, expected_success in ((12, True), (32, False)):
+            with self.subTest(variants=variants):
+                names = [f"Frame{index}" for index in range(variants)]
+                fields = "".join(f"    pub field{index}: u8,\n" for index in range(6))
+                arms = "".join(
+                    f"        FrameKind::{name} => WireFields {{\n"
+                    + "".join(f"            field{field}: {value},\n" for field in range(6))
+                    + "        },\n"
+                    for value, name in enumerate(names)
+                )
+                source.write_text(
+                    "pub enum FrameKind { "
+                    + ", ".join(names)
+                    + " }\n"
+                    + "pub struct WireFields {\n"
+                    + fields
+                    + "}\n"
+                    + "pub fn decode(kind: FrameKind) -> WireFields {\n"
+                    + "    match kind {\n"
+                    + arms
+                    + "    }\n}\n"
+                )
+                subprocess.run(
+                    ["cargo", "generate-lockfile", "--offline"],
+                    cwd=self.project,
+                    env=environment,
+                    capture_output=True,
+                    check=True,
+                )
+                result = subprocess.run(
+                    ["bash", str(ACTION / "check.sh")],
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if expected_success:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("too_many_lines", result.stderr)
+
+    def test_private_module_keeps_explicit_crate_visibility(self):
+        (self.project / "src").mkdir()
+        (self.project / "Cargo.toml").write_text(
+            '[package]\nname="visibility_fixture"\nversion="0.1.0"\nedition="2021"\n'
+        )
+        source = self.project / "src/lib.rs"
+        source.write_text(
+            "mod implementation {\n"
+            "    pub(crate) fn answer() -> u8 { 42 }\n"
+            "}\n\n"
+            "pub fn answer() -> u8 { implementation::answer() }\n"
+        )
+        environment = {
+            **os.environ,
+            "CARGO_HOME": str(self.root / "cargo-home"),
+            "CARGO_TARGET_DIR": str(self.root / "target"),
+            "CARGO_NET_OFFLINE": "true",
+            "RUSTUP_AUTO_INSTALL": "0",
+            "SETUP_TOOLCHAIN": "false",
+            "WORKING_DIRECTORY": str(self.project),
+            "CHECKS": "clippy",
+        }
+        subprocess.run(
+            ["cargo", "generate-lockfile", "--offline"],
+            cwd=self.project,
+            env=environment,
+            capture_output=True,
+            check=True,
+        )
+        result = subprocess.run(
+            ["bash", str(ACTION / "check.sh")],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        source.write_text(source.read_text().replace("pub(crate) fn", "pub fn"))
+        result = subprocess.run(
+            ["bash", str(ACTION / "check.sh")],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unreachable_pub", result.stderr)
+
     def test_real_offline_binary_only_package(self):
         (self.project / "src").mkdir()
         (self.project / "Cargo.toml").write_text(

@@ -52,7 +52,7 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | --- | --- |
 | Correctness, performance, and idiomatic code | Compiler plus Clippy's default `all` group |
 | Handle results, including blank assignments | `unused_must_use`, `let_underscore_must_use`, `unused_result_ok` |
-| Readable control flow | `too_many_lines=80`, `cognitive_complexity=20`, nesting threshold 5 |
+| Readable control flow | `too_many_lines=250`, `cognitive_complexity=20`, nesting threshold 5 |
 | Exhaustive matches | Compiler requires exhaustive matches; wildcard arms intentionally cover other variants |
 | Restrict APIs | Configurable disallowed methods, types, and macros; no dependency-graph or module-boundary enforcement |
 | Unfinished code | `todo!()` and `unimplemented!()` checks; ordinary TODO comments need a separate check |
@@ -62,11 +62,16 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | Application lifecycle | No general checks for application cancellation, logging context, span lifecycle, or useful error context |
 | Duplication | Existing `code-duplication` action supports Rust independently of Clippy |
 
-Cognitive complexity and line counts do not measure whether helper extraction
-improves readability. Calibrate
+The 250-line limit accommodates cohesive exhaustive protocol mappings; cognitive
+complexity and nesting remain separate checks. Line counts do not measure whether
+helper extraction improves readability. Calibrate
 the limits against real code; prefer changing shared policy over creating chains
 of single-use helpers or adding inline suppressions. Nesting counts include
 function, impl, and module blocks, which is why its initial threshold is 5.
+
+`unreachable_pub` keeps implementation APIs inside the crate. The preset does
+not enable `redundant_pub_crate`, which conflicts with explicit crate visibility
+inside private modules. Modules need not become public to satisfy linting.
 
 The preset selects individual pedantic/restriction checks. It does not enable
 entire pedantic, restriction, or nursery groups. Production unwrap/expect checks

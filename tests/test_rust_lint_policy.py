@@ -105,7 +105,7 @@ class RustLintPolicyTests(unittest.TestCase):
                 source.write_text(
                     INVALID_SOURCE
                     + "\npub fn long_lifecycle() {\n"
-                    + "    std::hint::black_box(0_u8);\n" * 82
+                    + "    std::hint::black_box(0_u8);\n" * 252
                     + "}\n"
                 )
                 result = subprocess.run(
