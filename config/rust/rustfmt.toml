@@ -2,6 +2,8 @@
 # Pin the formatting style so dependency/edition upgrades do not select it.
 style_edition = "2024"
 max_width = 120
+# Keep longer method chains multiline independently of the overall line width.
+chain_width = 60
 hard_tabs = false
 tab_spaces = 4
 newline_style = "Unix"
