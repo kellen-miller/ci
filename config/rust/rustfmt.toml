@@ -1,8 +1,9 @@
 # Stable options. Cargo supplies the project's parser edition.
 # Pin the formatting style so dependency/edition upgrades do not select it.
 style_edition = "2024"
-max_width = 120
-# Keep longer method chains multiline independently of the overall line width.
+max_width = 100
+# Keep longer calls and method chains multiline independently of the line width.
+fn_call_width = 60
 chain_width = 60
 hard_tabs = false
 tab_spaces = 4
