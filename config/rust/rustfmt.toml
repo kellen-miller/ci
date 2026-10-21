@@ -1,0 +1,11 @@
+# Stable options. Cargo supplies the project's parser edition.
+# Pin the formatting style so dependency/edition upgrades do not select it.
+style_edition = "2024"
+max_width = 120
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+reorder_imports = true
+reorder_modules = true
+use_field_init_shorthand = true
+use_try_shorthand = true

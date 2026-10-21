@@ -1,0 +1,20 @@
+# These configure checks selected in Cargo.toml; they do not enable checks.
+
+# Correspond to Go gocognit=20 and funlen=80; metrics differ by language/tool.
+cognitive-complexity-threshold = 20
+too-many-lines-threshold = 80
+
+# Initial Rust-specific limits. Nesting includes function/impl/module blocks.
+excessive-nesting-threshold = 5
+too-many-arguments-threshold = 7
+max-fn-params-bools = 2
+
+# Central test exceptions, similar to the Go config's test exclusions.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+# Populate only when a project has a known replacement and reason.
+# This checks API usage, not dependency graphs or module boundaries.
+disallowed-methods = []
+disallowed-types = []
+disallowed-macros = []

@@ -224,6 +224,11 @@ including failed runs. An explicit `toolchain` overrides file discovery. Empty
 upstream `rustflags` preserves caller Rust flags. No Cargo lint settings or rustfmt
 configuration are downloaded or replaced.
 
+For stricter linting, review the optional [Rust policy preset](config/rust/README.md).
+It maps the shared Go policy to selected Clippy checks, stable rustfmt settings,
+and rust-analyzer editor settings. Consumers explicitly adopt and commit the
+configuration; the action does not enable it automatically.
+
 The action requires Bash and Python 3, available on GitHub-hosted Linux and macOS
 runners. The script validates checks, boolean and profile before running Cargo, rejects
 multiline script inputs, and stops on the first failure with its exit status.
