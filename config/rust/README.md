@@ -56,7 +56,7 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | Exhaustive matches | Compiler requires exhaustive matches; wildcard arms intentionally cover other variants |
 | Restrict APIs | Configurable disallowed methods, types, and macros; no dependency-graph or module-boundary enforcement |
 | Unfinished code | `todo!()` and `unimplemented!()` checks; ordinary TODO comments need a separate check |
-| Consistent formatting | rustfmt, sorted imports, 120-column target, 60-column chain threshold |
+| Consistent formatting | rustfmt, sorted imports, 100-column target, 60-column call and chain thresholds |
 | Test exclusions | Central unwrap/expect exceptions for recognized test functions and modules |
 | Resource cleanup | Ownership/Drop covers many cleanup cases, not protocol completion or all errors |
 | Application lifecycle | No general checks for application cancellation, logging context, span lifecycle, or useful error context |
@@ -89,9 +89,12 @@ Stable rustfmt cannot enforce a blank line after every logically complete `}`.
 Even nightly blank-line bounds concern items, not that full semantic rule.
 Some import grouping and comment wrapping options also require nightly rustfmt.
 The width is a formatting target, not a strict limit on every comment or string.
-Method chains use a separate `chain_width = 60` threshold so longer functional
-pipelines wrap across lines while short chains stay compact. This threshold is
-independent of the 120-column target and Clippy's 250-line function limit.
+Function calls use `fn_call_width = 60` and method chains use `chain_width = 60`
+so longer argument lists and functional pipelines wrap across lines while short
+calls and chains stay compact. These thresholds are independent of the
+100-column target and Clippy's 250-line function limit. Function signatures,
+match patterns, and conditions wrap using the 100-column target and rustfmt's
+standard layout rules.
 
 ## Sources
 
