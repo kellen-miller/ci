@@ -190,8 +190,6 @@ linters:
         - G703
     govet:
       enable-all: true
-      disable:
-        - fieldalignment
       settings:
         shadow:
           strict: true
@@ -286,11 +284,6 @@ linters:
       - comments
       - common-false-positives
     rules:
-      # WASI c-shared entrypoints initialize callbacks here; main is not executed.
-      - linters:
-          - gochecknoinits
-        path: '(^|/)cmd/wasm/main\.go$'
-        source: '^func init\('
       - linters:
           - govet
         text: 'shadow: declaration of "(err|ok)" shadows declaration'
