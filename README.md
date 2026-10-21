@@ -95,6 +95,8 @@ every transitive dependency.
   The policy permits `init` in `cmd/wasm/main.go` for WASI shared-library callback
   initialization: that build mode does not execute `main`. Other entrypoints and
   other files retain the general restriction on `init` functions.
+  `govet` field-alignment optimization is excluded: reordering serialized fields
+  can change JSON bytes and invalidate persisted identities or signatures.
 - Node resolves an explicit runtime, then `.node-version`, `.nvmrc`,
   `package.json`'s `engines.node`, or Node 24. An ambiguous package-manager lockfile
   requires an explicit choice. npm, pnpm, Yarn and Bun use frozen installs.
