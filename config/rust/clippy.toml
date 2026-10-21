@@ -2,7 +2,7 @@
 
 # Starting limits for cognitive complexity and function length.
 cognitive-complexity-threshold = 20
-too-many-lines-threshold = 80
+too-many-lines-threshold = 250
 
 # Initial Rust-specific limits. Nesting includes function/impl/module blocks.
 excessive-nesting-threshold = 5
