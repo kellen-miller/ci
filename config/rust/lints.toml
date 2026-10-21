@@ -36,5 +36,4 @@ disallowed_macros = "warn"
 
 # Small, explicit Rust-specific improvements.
 wildcard_imports = "warn"
-redundant_pub_crate = "warn"
 unused_async = "warn"

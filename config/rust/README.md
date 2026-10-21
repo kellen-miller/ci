@@ -68,6 +68,9 @@ the limits against real code; prefer changing shared policy over creating chains
 of single-use helpers or adding inline suppressions. Nesting counts include
 function, impl, and module blocks, which is why its initial threshold is 5.
 
+`unreachable_pub` requires narrow visibility for internal APIs. The preset excludes
+`redundant_pub_crate`, which recommends the opposite visibility for those APIs.
+
 The preset selects individual pedantic/restriction checks. It does not enable
 entire pedantic, restriction, or nursery groups. Production unwrap/expect checks
 do not prove panic freedom; deliberately discarded errors still need review.

@@ -7,12 +7,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / ".github/actions/rust-check/check.sh"
 PACKAGE = '[package]\nname = "lint_fixture"\nversion = "0.1.0"\nedition = "2024"\n'
-VALID_SOURCE = """/// Parse a count.
+VALID_SOURCE = """mod internal {
+    pub(crate) fn parse_count(input: &str) -> Result<u32, std::num::ParseIntError> {
+        input.parse()
+    }
+
+    pub(super) fn checked_count(input: &str) -> Result<u32, std::num::ParseIntError> {
+        parse_count(input)
+    }
+}
+
+/// Parse a count.
 ///
 /// # Errors
 /// Returns an integer parsing error for invalid input.
 pub fn parse_count(input: &str) -> Result<u32, std::num::ParseIntError> {
-    input.parse()
+    internal::checked_count(input)
 }
 
 #[cfg(test)]
@@ -24,7 +34,15 @@ mod tests {
     }
 }
 """
-INVALID_SOURCE = """pub fn discarded_result(input: &str) {
+INVALID_SOURCE = """mod hidden {
+    pub fn hidden_api() {}
+}
+
+pub fn exercise_hidden() {
+    hidden::hidden_api();
+}
+
+pub fn discarded_result(input: &str) {
     let _ = input.parse::<u32>();
 }
 
@@ -124,8 +142,11 @@ class RustLintPolicyTests(unittest.TestCase):
                     "dbg_macro",
                     "todo",
                     "too_many_lines",
+                    "unreachable_pub",
                 ):
                     self.assertIn(lint, result.stderr)
+                self.assertIn("unreachable `pub` item", result.stderr)
+                self.assertIn("hidden_api", result.stderr)
 
                 for path, contents in preserved.items():
                     self.assertEqual(path.read_bytes(), contents)
