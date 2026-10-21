@@ -55,7 +55,9 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 "CARGO_METADATA": json.dumps(
                     {
                         "workspace_members": ["fixture"],
-                        "packages": [{"id": "fixture", "targets": [{"doctest": True}]}],
+                        "packages": [
+                            {"id": "fixture", "name": "fixture", "targets": [{"doctest": True}]}
+                        ],
                     }
                 ),
                 "SETUP_TOOLCHAIN": "true",
@@ -85,7 +87,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             calls[0]["argv"],
             ["fmt", "--all", "--", "--check", "--config-path", str(POLICY / "rustfmt.toml")],
         )
-        clippy = calls[1]
+        clippy = calls[2]
         self.assertEqual(
             clippy["argv"][:6],
             ["clippy", "--locked", "--workspace", "--all-features", "--all-targets", "--"],
@@ -98,7 +100,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         )
         self.assertEqual(clippy["clippy_conf_dir"], str(POLICY))
         self.assertEqual(
-            [call["argv"] for call in calls[2:]],
+            [call["argv"] for call in calls[3:]],
             [
                 ["test", "--locked", "--workspace", "--all-features", "--all-targets"],
                 ["metadata", "--locked", "--no-deps", "--format-version", "1", "--all-features"],
@@ -114,7 +116,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 ],
             ],
         )
-        self.assertEqual([call["cwd"] for call in calls], [str(self.project.resolve())] * 6)
+        self.assertEqual([call["cwd"] for call in calls], [str(self.project.resolve())] * 7)
 
     def test_selected_checks_preserve_order_release_profile_and_default_features(self):
         result, calls = self.run_check(
@@ -134,9 +136,9 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             ],
         )
         self.assertEqual(
-            calls[4]["argv"][:5], ["clippy", "--locked", "--workspace", "--all-targets", "--"]
+            calls[5]["argv"][:5], ["clippy", "--locked", "--workspace", "--all-targets", "--"]
         )
-        self.assertEqual(calls[4]["argv"][-2:], ["-D", "warnings"])
+        self.assertEqual(calls[5]["argv"][-2:], ["-D", "warnings"])
 
     def test_explicit_policy_directory_resolves_relative_to_workspace(self):
         policy = (self.project / "local policy").resolve()
@@ -149,9 +151,9 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         result, calls = self.run_check(POLICY_DIRECTORY="local policy", CHECKS="fmt clippy")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(calls[0]["argv"][-2:], ["--config-path", str(policy / "rustfmt.toml")])
-        self.assertEqual(calls[1]["clippy_conf_dir"], str(policy))
+        self.assertEqual(calls[2]["clippy_conf_dir"], str(policy))
         self.assertEqual(
-            calls[1]["argv"][6:],
+            calls[2]["argv"][6:],
             ["-D", "unused_must_use", "-W", "clippy::unwrap_used", "-D", "warnings"],
         )
 
@@ -174,10 +176,75 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(calls, [])
 
+    def test_only_exact_generated_workspace_metadata_excludes_clippy_packages(self):
+        metadata = {
+            "workspace_members": ["app", "proto", "sql"],
+            "packages": [
+                {"id": "app", "name": "app", "metadata": None},
+                {"id": "proto", "name": "proto", "metadata": {"ci": {"generated": True}}},
+                {"id": "sql", "name": "sql", "metadata": {"ci": {"generated": True}}},
+                {"id": "dependency", "name": "dependency", "metadata": {"ci": {"generated": True}}},
+            ],
+        }
+        for value in (
+            None,
+            {},
+            {"ci": True},
+            {"ci": {"generated": False}},
+            {"ci": {"generated": "true"}},
+            {"ci": {"generated": 1}},
+        ):
+            with self.subTest(metadata=value):
+                metadata["packages"][0]["metadata"] = value
+                result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(
+                    calls[1]["argv"][:11],
+                    [
+                        "clippy",
+                        "--locked",
+                        "--workspace",
+                        "--all-features",
+                        "--no-deps",
+                        "--exclude",
+                        "proto",
+                        "--exclude",
+                        "sql",
+                        "--all-targets",
+                        "--",
+                    ],
+                )
+
+    def test_all_generated_workspace_skips_only_clippy(self):
+        metadata = {
+            "workspace_members": ["proto"],
+            "packages": [
+                {
+                    "id": "proto",
+                    "name": "proto",
+                    "metadata": {"ci": {"generated": True}},
+                    "targets": [{"doctest": True}],
+                }
+            ],
+        }
+        result, calls = self.run_check(CARGO_METADATA=json.dumps(metadata))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Skipping Clippy: all workspace packages", result.stdout)
+        self.assertEqual(
+            [call["argv"][0] for call in calls],
+            ["fmt", "metadata", "test", "metadata", "test", "build"],
+        )
+        self.assertTrue(all("--exclude" not in call["argv"] for call in calls))
+
+    def test_clippy_metadata_errors_fail_before_linting(self):
+        result, calls = self.run_check(CHECKS="clippy build", CARGO_METADATA="invalid JSON")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
     def test_every_check_can_run_independently(self):
         for check, expected in [
             ("fmt", ["fmt"]),
-            ("clippy", ["clippy"]),
+            ("clippy", ["metadata", "clippy"]),
             ("test", ["test", "metadata", "test"]),
             ("build", ["build"]),
         ]:
@@ -244,11 +311,12 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
     def test_failures_preserve_exit_code_and_stop_all_later_commands(self):
         for check, argument, count in [
             ("fmt", "", 1),
-            ("clippy", "", 2),
-            ("test", "--all-targets", 3),
-            ("metadata", "", 4),
-            ("test", "--doc", 5),
-            ("build", "", 6),
+            ("metadata", "", 2),
+            ("clippy", "", 3),
+            ("test", "--all-targets", 4),
+            ("metadata", "--no-deps", 2),
+            ("test", "--doc", 6),
+            ("build", "", 7),
         ]:
             with self.subTest(check=check, argument=argument):
                 result, calls = self.run_check(FAIL_CHECK=check, FAIL_ARG=argument, FAIL_CODE="43")

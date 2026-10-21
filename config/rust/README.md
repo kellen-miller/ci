@@ -21,6 +21,25 @@ It sets `CLIPPY_CONF_DIR` to this directory and passes an explicit rustfmt confi
 path. These settings apply to every selected workspace member without Cargo
 lint inheritance. Normal Rust source-attribute precedence still applies.
 
+Packages containing generated code can declare ownership in their manifest:
+
+```toml
+[package.metadata.ci]
+generated = true
+```
+
+Only the exact boolean `true` opts a workspace package out of Clippy checking.
+Formatting, tests (including doctests), and builds still cover the entire
+workspace. Generated packages still compile as dependencies of handwritten
+packages during Clippy; handwritten packages retain the full shared lint policy.
+When exclusions exist, Clippy uses `--no-deps` so excluded path dependencies are
+not linted transitively; all handwritten workspace members remain selected.
+An entirely generated workspace logs a Clippy skip and continues other checks.
+Keep handwritten code in separate packages; do not mark mixed packages generated.
+Use this declaration for code-generator output rather than rewriting generated
+code to satisfy style lints or adding inline lint suppressions. Unmarked packages
+retain the existing policy.
+
 Project `clippy.toml` and `rustfmt.toml` files do not replace these defaults.
 For an explicit replacement, set `policy-directory` to a directory relative to
 `working-directory` containing `lints.toml`, `clippy.toml`, and `rustfmt.toml`.
