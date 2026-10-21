@@ -1,0 +1,40 @@
+# Read by the shared Rust check script. Groups precede individual lints.
+
+[rust]
+unsafe_op_in_unsafe_fn = "deny"
+unused_must_use = "deny"
+non_ascii_idents = "warn"
+unreachable_pub = "warn"
+
+[clippy]
+all = "warn"
+
+# Readable control flow. Thresholds are starting points, not design targets.
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+excessive_nesting = "warn"
+fn_params_excessive_bools = "warn"
+
+# Handle failures; keep panics out of ordinary runtime paths.
+unwrap_used = "warn"
+expect_used = "warn"
+let_underscore_must_use = "warn"
+unused_result_ok = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+
+# Keep unfinished code and unexplained unsafe operations visible.
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+undocumented_unsafe_blocks = "warn"
+
+# Ban selected APIs through clippy.toml when a project has an actual policy.
+disallowed_methods = "warn"
+disallowed_types = "warn"
+disallowed_macros = "warn"
+
+# Small, explicit Rust-specific improvements.
+wildcard_imports = "warn"
+redundant_pub_crate = "warn"
+unused_async = "warn"

@@ -9,6 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / ".github/actions/rust-check"
+POLICY = ROOT / "config/rust"
 SETUP = "actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f"
 
 
@@ -33,7 +34,8 @@ if sys.argv[1] == "metadata":
     print(os.environ["CARGO_METADATA"])
 
 with Path(os.environ["CARGO_LOG"]).open("a") as log:
-    log.write(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd()}) + "\\n")
+    log.write(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd(),
+                          "clippy_conf_dir": os.environ.get("CLIPPY_CONF_DIR")}) + "\\n")
 
 if sys.argv[1] == os.environ.get("FAIL_CHECK"):
     if not os.environ.get("FAIL_ARG") or os.environ["FAIL_ARG"] in sys.argv[2:]:
@@ -76,23 +78,28 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         )
         return result, calls
 
-    def test_default_checks_use_exact_locked_workspace_arguments_and_cwd(self):
-        result, calls = self.run_check()
+    def test_default_checks_use_locked_workspace_arguments_and_shared_policy(self):
+        result, calls = self.run_check(CLIPPY_CONF_DIR="ignored ambient configuration")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
-            [call["argv"] for call in calls],
+            calls[0]["argv"],
+            ["fmt", "--all", "--", "--check", "--config-path", str(POLICY / "rustfmt.toml")],
+        )
+        clippy = calls[1]
+        self.assertEqual(
+            clippy["argv"][:6],
+            ["clippy", "--locked", "--workspace", "--all-features", "--all-targets", "--"],
+        )
+        self.assertEqual(clippy["argv"][-2:], ["-D", "warnings"])
+        self.assertIn("clippy::unwrap_used", clippy["argv"])
+        self.assertIn("unused_must_use", clippy["argv"])
+        self.assertLess(
+            clippy["argv"].index("clippy::all"), clippy["argv"].index("clippy::unwrap_used")
+        )
+        self.assertEqual(clippy["clippy_conf_dir"], str(POLICY))
+        self.assertEqual(
+            [call["argv"] for call in calls[2:]],
             [
-                ["fmt", "--all", "--", "--check"],
-                [
-                    "clippy",
-                    "--locked",
-                    "--workspace",
-                    "--all-features",
-                    "--all-targets",
-                    "--",
-                    "-D",
-                    "warnings",
-                ],
                 ["test", "--locked", "--workspace", "--all-features", "--all-targets"],
                 ["metadata", "--locked", "--no-deps", "--format-version", "1", "--all-features"],
                 ["test", "--locked", "--workspace", "--all-features", "--doc"],
@@ -118,15 +125,54 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
-            [call["argv"] for call in calls],
+            [call["argv"] for call in calls[:4]],
             [
                 ["build", "--locked", "--workspace", "--all-targets", "--profile", "release"],
                 ["test", "--locked", "--workspace", "--all-targets"],
                 ["metadata", "--locked", "--no-deps", "--format-version", "1"],
                 ["test", "--locked", "--workspace", "--doc"],
-                ["clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"],
             ],
         )
+        self.assertEqual(
+            calls[4]["argv"][:5], ["clippy", "--locked", "--workspace", "--all-targets", "--"]
+        )
+        self.assertEqual(calls[4]["argv"][-2:], ["-D", "warnings"])
+
+    def test_explicit_policy_directory_resolves_relative_to_workspace(self):
+        policy = (self.project / "local policy").resolve()
+        policy.mkdir()
+        (policy / "rustfmt.toml").write_text("max_width = 88\n")
+        (policy / "clippy.toml").write_text("allow-unwrap-in-tests = true\n")
+        (policy / "lints.toml").write_text(
+            '[rust]\nunused_must_use = "deny"\n[clippy]\nunwrap_used = "warn"\n'
+        )
+        result, calls = self.run_check(POLICY_DIRECTORY="local policy", CHECKS="fmt clippy")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(calls[0]["argv"][-2:], ["--config-path", str(policy / "rustfmt.toml")])
+        self.assertEqual(calls[1]["clippy_conf_dir"], str(policy))
+        self.assertEqual(
+            calls[1]["argv"][6:],
+            ["-D", "unused_must_use", "-W", "clippy::unwrap_used", "-D", "warnings"],
+        )
+
+    def test_incomplete_or_invalid_policy_fails_before_cargo(self):
+        policy = self.project / "policy"
+        policy.mkdir()
+        result, calls = self.run_check(POLICY_DIRECTORY="policy")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, [])
+        (policy / "rustfmt.toml").write_text("max_width = 120\n")
+        (policy / "clippy.toml").write_text("")
+        for text in (
+            "invalid toml",
+            '[rust]\nunused_must_use = "warn"\n',
+            '[rust]\nunused_must_use = "deny"\n[clippy]\nunwrap_used = "invalid"\n',
+        ):
+            with self.subTest(policy=text):
+                (policy / "lints.toml").write_text(text)
+                result, calls = self.run_check(POLICY_DIRECTORY="policy")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(calls, [])
 
     def test_every_check_can_run_independently(self):
         for check, expected in [
@@ -162,6 +208,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             "SETUP_TOOLCHAIN": ["", "True", "1", "false ", "true\n", "$(touch pwned)"],
             "BUILD_PROFILE": ["", "debug", "custom", "dev release", "dev\r", ";touch pwned"],
             "WORKING_DIRECTORY": ["workspace\nname", "workspace\rname", "", "missing"],
+            "POLICY_DIRECTORY": ["bad\npath", "bad\rpath", "missing"],
         }.items():
             for value in values:
                 with self.subTest(name=name, value=value):
@@ -176,7 +223,21 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         result, calls = self.run_check(WORKING_DIRECTORY=directory.name, CHECKS="fmt")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
-            calls, [{"argv": ["fmt", "--all", "--", "--check"], "cwd": str(directory.resolve())}]
+            calls,
+            [
+                {
+                    "argv": [
+                        "fmt",
+                        "--all",
+                        "--",
+                        "--check",
+                        "--config-path",
+                        str(POLICY / "rustfmt.toml"),
+                    ],
+                    "cwd": str(directory.resolve()),
+                    "clippy_conf_dir": None,
+                }
+            ],
         )
         self.assertFalse((self.root / "pwned").exists())
 
@@ -222,6 +283,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 "all-features": "true",
                 "build-profile": "dev",
                 "cache-key": "",
+                "policy-directory": "",
             },
         )
         self.assertEqual(action["runs"]["using"], "composite")
@@ -248,6 +310,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 "CHECKS": "${{ inputs.checks }}",
                 "ALL_FEATURES": "${{ inputs.all-features }}",
                 "BUILD_PROFILE": "${{ inputs.build-profile }}",
+                "POLICY_DIRECTORY": "${{ inputs.policy-directory }}",
             },
         )
         workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yaml").read_text())

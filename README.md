@@ -88,11 +88,10 @@ every transitive dependency.
   indentation, block collections, `true`/`false` booleans, and no line-length or
   document-start requirement. `.gitignore` controls exclusions. Validation uses
   `yamllint --strict`; consumers can copy this repository's `.yamllint`.
-- Go config is discovered normally from the working directory and its parents.
-  Set `config` for an explicit path relative to `working-directory`. Nothing
-  downloads or replaces `.golangci.yaml`. Formatting checks fail without rewriting
-  files. `config/golangci.yaml` is an optional generalized preset; copy and review
-  it explicitly. It is never downloaded into a consumer automatically.
+- Go lint and formatting use `config/golangci.yaml` bundled with the selected
+  action revision. Set `config` to a path relative to `working-directory` for an
+  explicit replacement. Both checks use the same resolver and policy. Project
+  configs are not discovered implicitly, and formatting checks do not rewrite files.
 - Node resolves an explicit runtime, then `.node-version`, `.nvmrc`,
   `package.json`'s `engines.node`, or Node 24. An ambiguous package-manager lockfile
   requires an explicit choice. npm, pnpm, Yarn and Bun use frozen installs.
@@ -217,19 +216,26 @@ After checkout, use `.github/actions/rust-check` directly in the consumer's job:
 | `all-features` | `'true'` | Add `--all-features` to Clippy, tests and build; `'false'` preserves Cargo's default feature selection |
 | `build-profile` | `dev` | Build profile, either `dev` or `release`; does not change the Clippy/test profile |
 | `cache-key` | empty | Additional upstream cache key for consumer matrices |
+| `policy-directory` | empty | Bundled Rust policy; an explicit replacement directory resolves relative to `working-directory` |
 
 The pinned `actions-rust-lang/setup-rust-toolchain` installs rustfmt and Clippy,
 discovers the caller's toolchain using `rust-src-dir`, and caches that workspace,
 including failed runs. An explicit `toolchain` overrides file discovery. Empty
-upstream `rustflags` preserves caller Rust flags. No Cargo lint settings or rustfmt
-configuration are downloaded or replaced.
+upstream `rustflags` preserves caller Rust flags.
 
-The action requires Bash and Python 3, available on GitHub-hosted Linux and macOS
-runners. The script validates checks, boolean and profile before running Cargo, rejects
-multiline script inputs, and stops on the first failure with its exit status.
-Formatting runs `cargo fmt --all -- --check` without rewriting files. Every
-dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
-Clippy adds `--all-targets -- -D warnings`. Tests use `--all-targets`, then `--doc`
+The action loads the [Rust policy](config/rust/README.md) bundled at its own
+revision. It passes lint levels from `lints.toml` as Clippy arguments, selects
+`clippy.toml` with `CLIPPY_CONF_DIR`, and passes `rustfmt.toml` explicitly to the
+formatter. Cargo manifests and project configuration files are not rewritten.
+Set `policy-directory` only to replace all three policy files explicitly.
+
+The action requires Bash and Python 3.11 or newer, available on GitHub-hosted
+Linux and macOS runners. The script validates inputs and selected policy before
+running Cargo, rejects multiline script inputs, and stops on the first failure.
+Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
+Every dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
+Clippy adds `--all-targets`, the shared lint flags, and `-D warnings`.
+Tests use `--all-targets`, then `--doc`
 when locked Cargo metadata identifies a workspace target with doctests enabled.
 Binary-only workspaces skip that second command; metadata failures fail the check.
 Build uses `--all-targets` and `--profile dev` or `--profile release`.
@@ -292,8 +298,7 @@ first ten lines, then removes empty descendant directories.
 
 Vault workflows/actions and private-package auth are excluded. Runners use GitHub's
 hosted infrastructure; the shared dependency policy uses public registries.
-The generalized Go preset is optional. Release self-tests
-are part of `ci.yaml` rather than a second repository workflow.
+Release self-tests are part of `ci.yaml` rather than a second repository workflow.
 
 ## Shared Renovate configuration
 

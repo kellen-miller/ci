@@ -1,5 +1,5 @@
 name: Rust check
-description: Run locked Cargo workspace checks using Bash, Python 3 and caller configuration
+description: Run locked Cargo workspace checks with bundled lint and formatting policies
 inputs:
   setup-toolchain:
     description: Set up Rust and cache; false requires the caller to prepare Rust first
@@ -22,6 +22,9 @@ inputs:
   cache-key:
     description: Optional additional cache key for consumer matrices
     default: ''
+  policy-directory:
+    description: Optional policy directory relative to working-directory; empty uses bundled policy
+    default: ''
 runs:
   using: composite
   steps:
@@ -41,4 +44,5 @@ runs:
         CHECKS: ${{ inputs.checks }}
         ALL_FEATURES: ${{ inputs.all-features }}
         BUILD_PROFILE: ${{ inputs.build-profile }}
+        POLICY_DIRECTORY: ${{ inputs.policy-directory }}
       run: bash "$GITHUB_ACTION_PATH/check.sh"

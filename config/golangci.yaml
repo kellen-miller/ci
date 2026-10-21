@@ -1,4 +1,6 @@
 version: '2'
+run:
+  relative-path-mode: gomod
 formatters:
   enable:
     - gofmt
@@ -83,6 +85,7 @@ linters:
     - nilnesserr
     - nilnil
     - noctx
+    - nolintlint
     - nonamedreturns
     - nosprintfhostport
     - perfsprint
@@ -126,13 +129,13 @@ linters:
             - $all
           deny:
             - pkg: github.com/golang/protobuf
-              desc: Use google.golang.org/protobuf instead
+              desc: Use google.golang.org/protobuf instead, see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules
             - pkg: github.com/satori/go.uuid
               desc: Use github.com/google/uuid instead, satori's package is not maintained
             - pkg: github.com/gofrs/uuid$
               desc: Use github.com/gofrs/uuid/v5 or later, it was not a go module before v5
             - pkg: gopkg.in/yaml.v
-              desc: Use github.com/goccy/go-yaml instead, gopkg.in/yaml.v* is not maintained
+              desc: Use go.yaml.in/yaml/v4 instead, gopkg.in/yaml.v* is archived (maintained by the YAML org under go.yaml.in)
         non-test files:
           files:
             - '!$test'
@@ -155,7 +158,7 @@ linters:
     exhaustive:
       check:
         - switch
-        - map
+        - mapliteral
       default-signifies-exhaustive: true
     funlen:
       lines: 80
@@ -168,6 +171,7 @@ linters:
       disabled-checks:
         - paramTypeCombine
         - unnamedResult
+        - whyNoLint
         - ifElseChain
       settings:
         captLocal:
@@ -180,6 +184,10 @@ linters:
           skipRecvDeref: false
     gomoddirectives:
       replace-local: true
+    gosec:
+      excludes:
+        - G117
+        - G703
     govet:
       enable-all: true
       settings:
@@ -189,6 +197,7 @@ linters:
       enable:
         - identical
         - opaque
+        - unusedmethod
     mnd:
       ignored-functions:
         - flag.Arg
@@ -202,6 +211,13 @@ linters:
         - os.WriteFile
     nakedret:
       max-func-lines: 0
+    nolintlint:
+      allow-no-explanation:
+        - funlen
+        - gocognit
+        - golines
+      require-explanation: true
+      require-specific: true
     prealloc:
       for-loops: true
       range-loops: true
@@ -213,10 +229,12 @@ linters:
               skip-comments: true
               skip-blank-lines: true
         - name: var-naming
+        - name: package-naming
           arguments:
-            - []
-            - []
-            - - skip-package-name-collision-with-go-std: true
+            - skip-collision-with-common-std: true
+        - name: marshal-receiver
+        - name: multiline-if-init
+        - name: use-slices-concat
     rowserrcheck:
       packages:
         - github.com/jmoiron/sqlx
@@ -253,6 +271,13 @@ linters:
       time-date-month: true
       time-layout: true
       default-rpc-path: true
+    wrapcheck:
+      extra-ignore-sigs:
+        - google.golang.org/grpc/status.Error(
+        - google.golang.org/grpc/status.Errorf(
+        - status.Error
+        - status.Errorf
+        - go.temporal.io/sdk/temporal.NewNonRetryableApplicationError(
   exclusions:
     generated: lax
     presets:
@@ -262,6 +287,12 @@ linters:
       - linters:
           - govet
         text: 'shadow: declaration of "(err|ok)" shadows declaration'
+      - linters:
+          - gocritic
+        source: //noinspection
+      - linters:
+          - gochecknoglobals
+        source: var (.*template\.Must\(.*|optionRegistry)
       - linters:
           - bodyclose
           - dupl
@@ -281,6 +312,10 @@ linters:
         path: _test\.go
         text: 'hugeParam:'
       - linters:
+          - gocritic
+        text: 'hugeParam: restriction is heavy'
+        source: restriction aip160\.RestrictionContext
+      - linters:
           - govet
         path: _test\.go
         text: 'fieldalignment:'
@@ -299,6 +334,9 @@ linters:
       - path: .*examples.*
         linters:
           - unused
+      - linters:
+          - prealloc
+        source: .*\[]app\.ConfigOption\[.*]{
     paths:
       - .*mock.*
       - third_party$
