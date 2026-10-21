@@ -11,6 +11,48 @@ POLICY = ACTION.parents[2] / "config/golangci.yaml"
 
 
 class GoLintTests(unittest.TestCase):
+    def test_serialized_field_order_does_not_require_memory_reordering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "go.mod").write_text("module example.com/fixture\n\ngo 1.24\n")
+            (project / "record.go").write_text(
+                "package fixture\n\n"
+                "type Record struct {\n"
+                '    Flag bool `json:"flag"`\n'
+                '    Count int `json:"count"`\n'
+                '    Name string `json:"name"`\n'
+                "}\n"
+            )
+            result = subprocess.run(
+                [
+                    "golangci-lint",
+                    "run",
+                    "--allow-parallel-runners",
+                    "--enable-only",
+                    "govet",
+                    "--config",
+                    str(POLICY),
+                ],
+                cwd=project,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            (project / "printf.go").write_text(
+                'package fixture\n\nimport "fmt"\n\nfunc Print() { fmt.Printf("%d", "value") }\n'
+            )
+            result = subprocess.run(
+                result.args,
+                cwd=project,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("Printf", result.stdout)
+
     def test_wasm_entrypoint_init_exception_does_not_cover_other_files(self):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
