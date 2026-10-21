@@ -113,7 +113,38 @@ for check in "${checks[@]}"; do
       cargo fmt --all -- --check --config-path "$policy_directory/rustfmt.toml"
       ;;
     clippy)
-      CLIPPY_CONF_DIR="$policy_directory" cargo clippy "${workspace_args[@]}" --all-targets -- "${lint_args[@]}" -D warnings
+      clippy_selection=$(cargo metadata "${metadata_args[@]}" | python3 -c '
+import json
+import sys
+
+metadata = json.load(sys.stdin)
+members = set(metadata["workspace_members"])
+packages = [package for package in metadata["packages"] if package["id"] in members]
+generated = []
+for package in packages:
+    ci = (package.get("metadata") or {}).get("ci", {})
+    if isinstance(ci, dict) and ci.get("generated") is True:
+        generated.append(package["name"])
+
+print(len(packages) - len(generated), *generated)
+')
+      read -r -a clippy_packages <<< "$clippy_selection"
+      if [[ "${clippy_packages[0]}" == 0 ]]; then
+        echo 'Skipping Clippy: all workspace packages declare package.metadata.ci.generated = true'
+        continue
+      fi
+
+      clippy_args=("${workspace_args[@]}")
+      if [[ "${#clippy_packages[@]}" -gt 1 ]]; then
+        # Excluded path dependencies still compile, but must not receive Clippy lints.
+        clippy_args+=(--no-deps)
+      fi
+
+      for package in "${clippy_packages[@]:1}"; do
+        clippy_args+=(--exclude "$package")
+      done
+
+      CLIPPY_CONF_DIR="$policy_directory" cargo clippy "${clippy_args[@]}" --all-targets -- "${lint_args[@]}" -D warnings
       ;;
     test)
       cargo test "${workspace_args[@]}" --all-targets
