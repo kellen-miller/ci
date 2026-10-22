@@ -62,7 +62,7 @@ jobs:
           SHA: ${{ github.sha }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
-        uses: kellen-miller/ci/.github/actions/run@2c8afb10d99eea786b6752c7f26daebe983e5d10
+        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           operation: provenance
       - name: Keyless attest

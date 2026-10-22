@@ -77,7 +77,7 @@ jobs:
         run: terraform show -no-color tfplan > plan.txt
       - name: Comment PR with plan
         if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
-        uses: kellen-miller/ci/.github/actions/terraform-plan-comment@2c8afb10d99eea786b6752c7f26daebe983e5d10
+        uses: kellen-miller/ci/.github/actions/terraform-plan-comment@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           working-directory: ${{ inputs.working-directory }}
           env-name: ${{ inputs.env-name }}

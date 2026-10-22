@@ -41,7 +41,7 @@ jobs:
         with:
           persist-credentials: false
       - id: setup
-        uses: kellen-miller/ci/.github/actions/setup-node@2c8afb10d99eea786b6752c7f26daebe983e5d10
+        uses: kellen-miller/ci/.github/actions/setup-node@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}

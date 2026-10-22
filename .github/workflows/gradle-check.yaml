@@ -42,7 +42,7 @@ jobs:
       - name: Run Gradle validation
         env:
           GRADLE_ARGUMENTS: ${{ inputs.arguments }}
-        uses: kellen-miller/ci/.github/actions/run@2c8afb10d99eea786b6752c7f26daebe983e5d10
+        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           operation: gradle-check
           working-directory: ${{ inputs.working-directory }}
