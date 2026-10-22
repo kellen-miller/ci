@@ -24,7 +24,10 @@ pub fn run(operation: &str) -> Result<()> {
 }
 
 fn code_duplication() -> Result<()> {
-    let config = env::var("CPD_CONFIG").unwrap_or_else(|_| ".jscpd.json".to_owned());
+    let config = env::var("CPD_CONFIG")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| ".jscpd.json".to_owned());
     ensure!(
         Path::new(&config).is_file(),
         "Config file does not exist: {config}"
