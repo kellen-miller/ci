@@ -97,7 +97,7 @@ impl RuntimeFixture {
             .to_owned();
         let (runner_os, runner_arch, target) = runtime_platform();
         let release_url =
-            format!("https://github.com/kellen-miller/ci/releases/download/ci-v{version}");
+            format!("https://github.com/kellen-miller/ci/releases/download/v{version}");
         let runner_temp = tempfile::tempdir().unwrap();
         let assets = tempfile::tempdir().unwrap();
         let tools = tempfile::tempdir().unwrap();
@@ -420,4 +420,53 @@ fn locate_program(name: &str) -> PathBuf {
     let result = Command::new(&program).arg("--version").output().unwrap();
     assert!(result.status.success());
     program
+}
+
+#[test]
+fn semantic_version_preparation_keeps_manifest_lock_and_loader_in_sync() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::write(
+        directory.path().join("Cargo.toml"),
+        "[package]\nname = \"personal-ci\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(directory.path().join("Cargo.lock"), "version = 4\n\n[[package]]\nname = \"personal-ci\"\nversion = \"0.1.0\"\n\n[[package]]\nname = \"dependency\"\nversion = \"0.1.0\"\n").unwrap();
+    fs::write(directory.path().join("runtime-version"), "0.1.0\n").unwrap();
+    for invalid in ["v0.2.0", "0.2.0-rc.1", "0.2.0+build", "invalid"] {
+        assert!(packaging::prepare_version(directory.path(), invalid).is_err());
+    }
+
+    assert_eq!(
+        fs::read_to_string(directory.path().join("runtime-version")).unwrap(),
+        "0.1.0\n"
+    );
+    packaging::prepare_version(directory.path(), "0.2.0").unwrap();
+    packaging::prepare_version(directory.path(), "0.2.0").unwrap();
+    let manifest: toml::Value =
+        toml::from_str(&fs::read_to_string(directory.path().join("Cargo.toml")).unwrap()).unwrap();
+    assert_eq!(manifest["package"]["version"].as_str(), Some("0.2.0"));
+    let lock = fs::read_to_string(directory.path().join("Cargo.lock")).unwrap();
+    assert!(lock.contains("name = \"personal-ci\"\nversion = \"0.2.0\""));
+    assert!(lock.contains("name = \"dependency\"\nversion = \"0.1.0\""));
+    assert_eq!(
+        fs::read_to_string(directory.path().join("runtime-version")).unwrap(),
+        "0.2.0\n"
+    );
+}
+
+#[test]
+fn package_rejects_a_mismatched_plain_v_tag() {
+    let directory = tempfile::tempdir().unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_ci"))
+        .args(["package", "x86_64-unknown-linux-musl", "missing-binary"])
+        .arg(directory.path().join("dist"))
+        .env("GITHUB_REF", "refs/tags/v99.0.0")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("release tag must match Cargo package version")
+    );
+    assert!(!directory.path().join("dist").exists());
 }

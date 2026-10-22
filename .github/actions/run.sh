@@ -27,7 +27,7 @@ directory="${RUNNER_TEMP:?Set RUNNER_TEMP to a private directory}/personal-ci/$v
 [[ "$target" != *windows* ]] || directory="${directory//\\//}"
 mkdir -p "$directory"
 archive="ci-$target.tar.gz"
-base="https://github.com/kellen-miller/ci/releases/download/ci-v$version"
+base="https://github.com/kellen-miller/ci/releases/download/v$version"
 if [[ ! -f "$directory/$archive" || ! -f "$directory/$archive.sha256" ]]; then
   curl --fail --silent --show-error --location --retry 3 --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 "$base/$archive" -o "$directory/$archive"
   curl --fail --silent --show-error --location --retry 3 --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 "$base/$archive.sha256" -o "$directory/$archive.sha256"

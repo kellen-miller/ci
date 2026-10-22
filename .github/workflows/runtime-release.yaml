@@ -1,16 +1,72 @@
 name: Release Rust runtime
 on:
   push:
-    tags:
-      - ci-v*
+    branches:
+      - main
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: runtime-${{ github.ref }}
+  group: runtime-release
   cancel-in-progress: false
 jobs:
+  version:
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    env:
+      CI_BINARY: ${{ github.workspace }}/target/debug/ci
+    outputs:
+      version: ${{ steps.ready.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          rustflags: ''
+      - run: cargo build --locked
+      - id: release
+        uses: ./.github/actions/release
+        with:
+          token: ${{ github.token }}
+          first-release-version: '0.1.0'
+          dry-run: 'true'
+      - name: Propose synchronized runtime metadata
+        id: ready
+        if: steps.release.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cargo run --locked -- prepare-runtime-version "$VERSION"
+          if git diff --quiet -- Cargo.toml Cargo.lock runtime-version; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            branch="release/v$VERSION"
+            existing="$(gh pr list --head "$branch" --base main --json url --jq '.[0].url // empty')"
+            if [[ -n "$existing" ]]; then
+              echo "Waiting for metadata PR: $existing"
+            else
+              git switch -c "$branch"
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git add Cargo.toml Cargo.lock runtime-version
+              git commit -m "chore(release): $VERSION"
+              gh auth setup-git
+              git push origin "HEAD:refs/heads/$branch"
+              gh pr create --base main --head "$branch" --title "chore(release): $VERSION" --body 'Synchronize Cargo and loader versions for the next semantic release. Merge after CI passes; the main workflow then qualifies and publishes the runtime.'
+              gh workflow run ci.yaml --ref "$branch"
+            fi
+          fi
   build:
+    needs: version
+    if: needs.version.outputs.version != ''
     strategy:
       fail-fast: false
       matrix:
@@ -63,21 +119,41 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   publish:
-    if: startsWith(github.ref, 'refs/tags/ci-v')
-    needs: build
+    needs:
+      - version
+      - build
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    env:
+      CI_BINARY: ${{ github.workspace }}/target/debug/ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          rustflags: ''
+      - run: cargo build --locked
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: runtime-*
           merge-multiple: true
           path: dist
-      - name: Publish versioned archives
+      - id: release
+        uses: ./.github/actions/release
+        with:
+          token: ${{ github.token }}
+          first-release-version: '0.1.0'
+      - name: Publish qualified archives
+        if: steps.release.outputs.release_published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes dist/*
+          RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
+          EXPECTED_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          test "$RELEASE_VERSION" = "$EXPECTED_VERSION"
+          gh release upload "$RELEASE_TAG" dist/*
