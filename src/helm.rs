@@ -12,6 +12,10 @@ use sha2::Digest;
 
 use crate::{command, github_output};
 
+/// Run one Helm or kubeconform operation.
+///
+/// # Errors
+/// Returns an error for unsupported operations, invalid inputs, failed child processes, network failures, or filesystem errors.
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "lint" => lint(),

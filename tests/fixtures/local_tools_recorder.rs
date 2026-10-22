@@ -9,7 +9,10 @@ fn main() {
         let mut content = fs::read_to_string(&log).unwrap_or_default();
         content.push_str(&line);
         content.push('\n');
-        fs::write(log, content).expect("write recorder log");
+        if let Err(error) = fs::write(log, content) {
+            eprintln!("cannot write recorder log: {error}");
+            process::exit(1);
+        }
     }
     if let Ok(output) = env::var("RECORDER_STDOUT") {
         print!("{output}");

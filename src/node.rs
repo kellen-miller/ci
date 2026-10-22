@@ -10,6 +10,10 @@ use serde_json::Value;
 
 use crate::{command, github_output};
 
+/// Run package-manager detection or installation.
+///
+/// # Errors
+/// Returns an error for unsupported operations, invalid inputs, or failed child processes.
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "detect" => detect(),
@@ -55,15 +59,17 @@ fn detect() -> Result<()> {
     } else {
         manager_input.as_str()
     };
-    let files = found
+    let Some(files) = found
         .iter()
         .find(|(name, _)| *name == manager)
-        .map(|(_, files)| files);
+        .map(|(_, files)| files)
+    else {
+        bail!("Unsupported package manager or missing lockfile: {manager}");
+    };
     ensure!(
-        files.is_some_and(|files| !files.is_empty()),
+        !files.is_empty(),
         "Unsupported package manager or missing lockfile: {manager}"
     );
-    let files = files.expect("validated package manager");
     ensure!(
         files.len() == 1,
         "Multiple {manager} lockfiles found; keep one"

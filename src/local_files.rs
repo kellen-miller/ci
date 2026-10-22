@@ -11,6 +11,10 @@ use anyhow::{Context, Result, bail, ensure};
 
 use crate::github_output;
 
+/// Run one filesystem or Go formatting operation.
+///
+/// # Errors
+/// Returns an error for unsupported operations, invalid inputs, failed child processes, or filesystem errors.
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "clean-generated-output" => clean_generated_output(),
@@ -139,7 +143,7 @@ fn set_private_permissions(path: &PathBuf) -> Result<()> {
 
 #[cfg(not(unix))]
 fn set_private_permissions(_path: &PathBuf) -> Result<()> {
-    Ok(())
+    bail!("setting credential permissions to 0600 is unsupported on this platform")
 }
 
 fn go_config(write_output: bool) -> Result<()> {

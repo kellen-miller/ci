@@ -8,6 +8,10 @@ use anyhow::{Context, Result, bail, ensure};
 
 use crate::{command, github_output};
 
+/// Run one tool check or resolve a tool's action outputs.
+///
+/// # Errors
+/// Returns an error for unsupported operations, invalid inputs, or failed child processes.
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "code-duplication" => code_duplication(),
@@ -52,7 +56,7 @@ fn code_duplication() -> Result<()> {
                 .downcast_ref::<command::Failure>()
                 .map(|failure| failure.0)
                 .unwrap_or(1);
-            let _ = command::run(Command::new("cpd").args([
+            if let Err(report_error) = command::run(Command::new("cpd").args([
                 "--config",
                 &config,
                 "--no-tips",
@@ -61,7 +65,9 @@ fn code_duplication() -> Result<()> {
                 "ai",
                 "--threshold",
                 "100",
-            ]));
+            ])) {
+                eprintln!("CPD AI report failed: {report_error}");
+            }
             Err(command::Failure(failure).into())
         }
     }
