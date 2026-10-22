@@ -380,9 +380,10 @@ Real semantic-release dry runs require the committed npm dependencies; `check`
 installs them and runs those otherwise ignored Rust tests. No test publishes a
 release, deletes a real branch, or uses cloud credentials.
 
-Only two small JavaScript files remain: adapters required by semantic-release's
+Production JavaScript is limited to two adapters required by semantic-release's
 Node API and plugin callbacks. Rust owns release orchestration, default policy,
-path filtering and tests. YAML, TOML, JSON and caller release configuration remain
+path filtering and tests. One caller-plugin fixture exercises the Node object API.
+YAML, TOML, JSON and caller release configuration remain
 in the formats required by their tools. Shell steps contain short native tool
 invocations; `.github/actions/run.sh` bootstraps the executable.
 

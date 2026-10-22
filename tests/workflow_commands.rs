@@ -775,6 +775,6 @@ fn node_checks_requires_a_script_and_preserves_execution_order_and_status() {
         .env("WORKFLOW_RECORDER_STATUS", "9")
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(9));
+    assert_eq!(output.status.code(), Some(9), "{output:?}");
     assert_eq!(fixture.calls().len(), 3);
 }

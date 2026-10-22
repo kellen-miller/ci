@@ -180,7 +180,7 @@ pub fn run() -> Result<()> {
 
     if !extras.is_empty() {
         command::run(
-            Command::new("npm")
+            command::script("npm")
                 .arg("install")
                 .arg("--prefix")
                 .arg(&directory)
