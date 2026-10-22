@@ -71,22 +71,17 @@ jobs:
             | helm registry login -u oauth2accesstoken \
                 --password-stdin "${REGION}-docker.pkg.dev"
       - name: Package chart
-        shell: bash
         env:
           CHART_PATH: ${{ inputs.chart-path }}
           CHART_VERSION: ${{ inputs.chart-version }}
-        run: |
-          helm dependency build "$CHART_PATH"
-          mkdir -p "$RUNNER_TEMP/chart-out"
-          helm package "$CHART_PATH" --version "$CHART_VERSION" \
-            --app-version "$CHART_VERSION" --destination "$RUNNER_TEMP/chart-out"
+        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        with:
+          operation: helm-package
       - name: Push chart
-        shell: bash
         env:
           REGION: ${{ inputs.repository-region }}
           PROJECT_ID: ${{ inputs.project-id }}
           REPO_NAME: ${{ inputs.repository-name }}
-        run: |
-          for tgz in "$RUNNER_TEMP/chart-out/"*.tgz; do
-            helm push "$tgz" "oci://${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}"
-          done
+        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        with:
+          operation: helm-push

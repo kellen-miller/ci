@@ -10,5 +10,4 @@ runs:
     - shell: bash
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
-      run: |
-        python3 "$GITHUB_ACTION_PATH/clean.py"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" clean-generated-output

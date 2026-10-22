@@ -67,26 +67,12 @@ jobs:
           pnpm-strict-dep-builds: ${{ inputs.pnpm-strict-dep-builds }}
         id: setup
       - name: Run repository checks
-        working-directory: ${{ inputs.working-directory }}
         env:
           PM: ${{ steps.setup.outputs.package-manager }}
           CHECK_SCRIPT: ${{ inputs.check-script }}
           FORMAT_SCRIPT: ${{ inputs.format-script }}
           LINT_SCRIPT: ${{ inputs.lint-script }}
-        run: |
-          if [[ -z "$FORMAT_SCRIPT" && -z "$CHECK_SCRIPT" && -z "$LINT_SCRIPT" ]]; then
-            echo "At least one format, check or lint script is required" >&2
-            exit 1
-          fi
-
-          if [[ -n "$FORMAT_SCRIPT" ]]; then
-            "$PM" run "$FORMAT_SCRIPT"
-          fi
-
-          if [[ -n "$CHECK_SCRIPT" ]]; then
-            "$PM" run "$CHECK_SCRIPT"
-          fi
-
-          if [[ -n "$LINT_SCRIPT" ]]; then
-            "$PM" run "$LINT_SCRIPT"
-          fi
+        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        with:
+          operation: node-checks
+          working-directory: ${{ inputs.working-directory }}

@@ -57,34 +57,15 @@ jobs:
           go-version-file: ${{ inputs.go-version-file }}
           cache-dependency-path: ${{ inputs.working-directory }}/go.sum
       - name: Run Go unit tests
-        shell: bash
         env:
           INTEGRATION: ${{ inputs.integration }}
           RACE: ${{ inputs.race }}
           TEST_PACKAGES: ${{ inputs.test-packages }}
           VET: ${{ inputs.vet }}
           BUILD_TARGET: ${{ inputs.build-target }}
-        working-directory: ${{ inputs.working-directory }}
-        run: |
-          args=(-v)
-          if [[ "$RACE" == true ]]; then
-            args+=(-race)
-          fi
-
-          read -r -a packages <<< "$TEST_PACKAGES"
-          if [[ ${#packages[@]} -eq 0 ]]; then
-            echo 'test-packages must contain at least one package path' >&2
-            exit 1
-          fi
-
-          go test "${args[@]}" "${packages[@]}"
-
-          if [[ "$VET" == true ]]; then
-            go vet ./...
-          fi
-
-          if [[ -n "$BUILD_TARGET" ]]; then
-            go build "$BUILD_TARGET"
-          fi
+        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        with:
+          operation: go-test
+          working-directory: ${{ inputs.working-directory }}
 permissions:
   contents: read

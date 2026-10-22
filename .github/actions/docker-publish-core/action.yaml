@@ -103,8 +103,7 @@ runs:
         CACHE_FROM: ${{ inputs.cache-from }}
         CACHE_TO: ${{ inputs.cache-to }}
         REPO: ${{ github.repository }}
-      run: |
-        bash "$GITHUB_ACTION_PATH/scripts/resolve-cache.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" docker-cache
     - name: Log in to registry
       if: ${{ inputs.registry != '' }}
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f

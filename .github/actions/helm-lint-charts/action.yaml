@@ -40,7 +40,7 @@ runs:
       shell: bash
       env:
         KUBECONFORM_VERSION: ${{ inputs.kubeconform-version }}
-      run: bash "$GITHUB_ACTION_PATH/install-kubeconform.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" install-kubeconform
     - name: Lint and render charts
       id: render
       shell: bash
@@ -51,8 +51,4 @@ runs:
         IGNORE_MISSING_SCHEMAS: ${{ inputs.ignore-missing-schemas }}
         SCHEMA_LOCATIONS: ${{ inputs.schema-locations }}
         KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
-      run: |
-        RENDERED_DIR="$(mktemp -d "$RUNNER_TEMP/helm-rendered.XXXXXX")"
-        export RENDERED_DIR
-        bash "$GITHUB_ACTION_PATH/lint.sh"
-        echo "directory=$RENDERED_DIR" >> "$GITHUB_OUTPUT"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" helm-lint

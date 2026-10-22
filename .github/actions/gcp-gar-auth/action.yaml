@@ -66,8 +66,7 @@ runs:
         CREDENTIALS_FILE: >-
           ${{ steps.auth_with_sa.outputs.credentials_file_path ||
               steps.auth_without_sa.outputs.credentials_file_path }}
-      run: |
-        python3 "$GITHUB_ACTION_PATH/isolate-credentials.py"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" isolate-credentials
     - name: Set up Cloud SDK
       if: ${{ inputs.skip-install != 'true' }}
       uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db

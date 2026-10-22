@@ -26,4 +26,4 @@ runs:
         PREFERRED_RUNNER: ${{ inputs.preferred-runner }}
         FALLBACK_RUNNER: ${{ inputs.fallback-runner }}
         RUNNER_STATUS_TOKEN: ${{ inputs.token }}
-      run: python3 "$GITHUB_ACTION_PATH/select_runner.py"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" select-runner

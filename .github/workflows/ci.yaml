@@ -8,126 +8,62 @@ concurrency:
   cancel-in-progress: true
 jobs:
   check:
+    env:
+      CI_BINARY: ${{ github.workspace }}/target/debug/ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          components: rustfmt,clippy
+          rustflags: ''
+      - name: Build current CI implementation
+        run: cargo build --locked
       - id: changes
         uses: ./.github/actions/changed-paths
         with:
           filters: >-
             {
-              "python": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                "**/*.py",
-                ".github/**",
-                "config/**",
-                "tests/**"
-              ],
-              "yaml": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                "**/*.yaml",
-                "**/*.yml",
-                ".yamllint"
-              ],
-              "workflows": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                ".github/**",
-                ".shellcheckrc",
-                ".actionlint*"
-              ],
-              "shell": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                ".github/actions/**/*.sh",
-                ".shellcheckrc"
-              ],
-              "go_config": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                "config/golangci.yaml"
-              ],
-              "renovate": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                "default.json",
-                "renovate.json"
-              ],
-              "release": [
-                "scripts/check.py",
-                ".github/actions/changed-paths/**",
-                ".github/workflows/ci.yaml",
-                "pyproject.toml",
-                "uv.lock",
-                ".github/actions/release/**"
-              ]
+              "rust": ["Cargo.toml", "Cargo.lock", "src/**", "tests/**", "config/**", ".github/**", "runtime-version"],
+              "yaml": ["**/*.yaml", "**/*.yml", ".yamllint", "src/**", "Cargo.*"],
+              "workflows": [".github/**", ".actionlint*", ".shellcheckrc", "src/**", "Cargo.*"],
+              "shell": [".github/**/*.sh", ".shellcheckrc", "src/**", "Cargo.*"],
+              "go_config": ["config/golangci.yaml", "src/**", "Cargo.*", ".github/workflows/ci.yaml"],
+              "renovate": ["default.json", "renovate.json", "src/**", "Cargo.*", ".github/workflows/ci.yaml"],
+              "release": [".github/actions/release/**", "src/**", "tests/release.rs", "Cargo.*", ".github/workflows/ci.yaml"]
             }
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
-        if: ${{ !cancelled() }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        if: ${{ !cancelled() }}
-        with:
-          python-version: '3.14'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python || fromJSON(steps.changes.outputs.changes).renovate || fromJSON(steps.changes.outputs.changes).release) }}
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).renovate || fromJSON(steps.changes.outputs.changes).release) }}
         with:
           node-version: '24'
           package-manager-cache: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python || fromJSON(steps.changes.outputs.changes).workflows || fromJSON(steps.changes.outputs.changes).go_config) }}
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).workflows || fromJSON(steps.changes.outputs.changes).go_config) }}
         with:
           go-version: stable
           cache: false
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python) }}
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust) }}
         with:
           version: v4.3.0
-      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python) }}
-        with:
-          toolchain: stable
-          components: rustfmt,clippy
-          cache: false
-          rustflags: ''
-      - name: Install ShellCheck
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).shell || fromJSON(steps.changes.outputs.changes).workflows) }}
+      - name: Install ShellCheck and yamllint
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).shell || fromJSON(steps.changes.outputs.changes).workflows || fromJSON(steps.changes.outputs.changes).yaml) }}
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          sudo apt-get install --yes shellcheck yamllint
       - name: Install actionlint
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).workflows) }}
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
       - name: Install golangci-lint
-        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).python || fromJSON(steps.changes.outputs.changes).go_config) }}
+        if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).go_config) }}
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
       - name: Validate repository
         if: ${{ !cancelled() }}
         env:
           CI_CHANGED_GROUPS: ${{ steps.changes.outputs.changes }}
-        run: |
-          uv sync --locked
-          uv run python scripts/check.py
+        run: cargo run --locked -- check

@@ -60,23 +60,15 @@ jobs:
           bun-version: ${{ inputs.bun-version }}
           install-args: ${{ inputs.install-args }}
       - name: Build
-        working-directory: ${{ inputs.working-directory }}
         env:
           PM: ${{ steps.setup.outputs.package-manager }}
           SCRIPT: ${{ inputs.build-script }}
           BASE_PATH: /${{ github.event.repository.name }}
           BUILD_ENV: ${{ inputs.build-env }}
-        run: |
-          while IFS= read -r line; do
-            [[ -z "$line" ]] && continue
-            if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-              echo "Invalid build environment assignment" >&2
-              exit 1
-            fi
-
-            export "${line?}"
-          done <<< "$BUILD_ENV"
-          "$PM" run "$SCRIPT"
+        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        with:
+          operation: pages-build
+          working-directory: ${{ inputs.working-directory }}
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:

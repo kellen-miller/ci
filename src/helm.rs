@@ -27,7 +27,14 @@ pub fn run(operation: &str) -> Result<()> {
 fn lint() -> Result<()> {
     let charts_root =
         PathBuf::from(env::var("CHARTS_ROOT").context("Set CHARTS_ROOT")?).canonicalize()?;
-    let rendered = PathBuf::from(env::var("RENDERED_DIR")?);
+    let rendered = if let Some(directory) = env::var_os("RENDERED_DIR") {
+        PathBuf::from(directory)
+    } else {
+        tempfile::Builder::new()
+            .prefix("helm-rendered-")
+            .tempdir_in(env::var("RUNNER_TEMP")?)?
+            .keep()
+    };
     fs::create_dir_all(&rendered)?;
     let mut charts = Vec::new();
     for entry in walkdir::WalkDir::new(&charts_root)

@@ -31,8 +31,7 @@ runs:
         RUNNER_OS: ${{ runner.os }}
         PLAYWRIGHT_VERSION: ${{ inputs.version }}
         RUNNER_ARCH: ${{ runner.arch }}
-      run: |
-        bash "$GITHUB_ACTION_PATH/scripts/resolve-version.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" playwright-version
     - id: cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
@@ -44,15 +43,11 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         BROWSERS: ${{ inputs.browsers }}
-      run: |
-        read -ra browsers <<< "$BROWSERS"
-        ./node_modules/.bin/playwright install --with-deps ${browsers[@]+"${browsers[@]}"}
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" playwright-install
     - name: Install system deps (cache hit)
       if: steps.cache.outputs.cache-hit == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         BROWSERS: ${{ inputs.browsers }}
-      run: |
-        read -ra browsers <<< "$BROWSERS"
-        ./node_modules/.bin/playwright install-deps ${browsers[@]+"${browsers[@]}"}
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" playwright-deps
