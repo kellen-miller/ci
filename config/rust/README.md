@@ -72,7 +72,7 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | Correctness, performance, and idiomatic code | Compiler plus Clippy's default `all` group |
 | Handle results, including blank assignments | `unused_must_use`, `let_underscore_must_use`, `unused_result_ok` |
 | Readable control flow | `too_many_lines=250`, `cognitive_complexity=20`, nesting threshold 5 |
-| File size | Tracked and nonignored untracked `.rs` files under handwritten workspace packages stay at or below 750 physical lines, including comments, blanks, build scripts, tests, and fixtures |
+| File size | When `clippy` is selected, tracked and nonignored untracked `.rs` files under handwritten workspace packages stay at or below 750 physical lines, including comments, blanks, build scripts, tests, and fixtures |
 | Exhaustive matches | Compiler requires exhaustive matches; wildcard arms intentionally cover other variants |
 | Restrict APIs | Configurable disallowed methods, types, and macros; no dependency-graph or module-boundary enforcement |
 | Unfinished code | `todo!()` and `unimplemented!()` checks; ordinary TODO comments need a separate check |
@@ -88,8 +88,11 @@ helper extraction improves readability. Calibrate
 the limits against real code; prefer changing shared policy over creating chains
 of single-use helpers or adding inline suppressions. Nesting counts include
 function, impl, and module blocks, which is why its initial threshold is 5.
-The file-length check runs before Clippy and uses the same exact generated-package
-ownership declaration described above.
+The file-length check runs only when `clippy` is selected. It uses the same exact
+generated-package ownership declaration described above, excludes nested Cargo
+dependency roots and Cargo's metadata-reported target directory, and fails on
+Rust symlinks that target external, dependency, or generated source. Symlinks to
+handwritten workspace source remain in scope.
 
 `unreachable_pub` keeps implementation APIs inside the crate. The preset does
 not enable `redundant_pub_crate`, which conflicts with explicit crate visibility

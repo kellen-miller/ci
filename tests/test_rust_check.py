@@ -107,10 +107,13 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         )
         self.assertEqual(clippy["clippy_conf_dir"], str(POLICY))
         self.assertEqual(
+            calls[1]["argv"], ["metadata", "--locked", "--format-version", "1", "--all-features"]
+        )
+        self.assertEqual(
             [call["argv"] for call in calls[3:]],
             [
                 ["test", "--locked", "--workspace", "--all-features", "--all-targets"],
-                ["metadata", "--locked", "--format-version", "1", "--all-features"],
+                ["metadata", "--locked", "--no-deps", "--format-version", "1", "--all-features"],
                 ["test", "--locked", "--workspace", "--all-features", "--doc"],
                 [
                     "build",
@@ -138,7 +141,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             [
                 ["build", "--locked", "--workspace", "--all-targets", "--profile", "release"],
                 ["test", "--locked", "--workspace", "--all-targets"],
-                ["metadata", "--locked", "--format-version", "1"],
+                ["metadata", "--locked", "--no-deps", "--format-version", "1"],
                 ["test", "--locked", "--workspace", "--doc"],
             ],
         )
@@ -146,6 +149,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             calls[5]["argv"][:5], ["clippy", "--locked", "--workspace", "--all-targets", "--"]
         )
         self.assertEqual(calls[5]["argv"][-2:], ["-D", "warnings"])
+        self.assertEqual(calls[4]["argv"], ["metadata", "--locked", "--format-version", "1"])
 
     def test_explicit_policy_directory_resolves_relative_to_workspace(self):
         policy = (self.project / "local policy").resolve()
@@ -286,10 +290,32 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
+    def test_ancestor_path_dependency_does_not_hide_nested_workspace(self):
+        workspace = self.project / "fuzz"
+        (workspace / "src").mkdir(parents=True)
+        manifest = workspace / "Cargo.toml"
+        manifest.write_text("[package]\n")
+        source = workspace / "src/lib.rs"
+        source.write_text("// nested handwritten workspace\n" * 751)
+        metadata = {
+            "workspace_members": ["fuzz"],
+            "target_directory": str(self.root / "fuzz target"),
+            "packages": [
+                {"id": "parent", "manifest_path": str(self.project / "Cargo.toml")},
+                {"id": "fuzz", "manifest_path": str(manifest)},
+            ],
+        }
+        result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("src/lib.rs", result.stderr)
+        self.assertIn("(751 lines)", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
     def test_clippy_checks_handwritten_rust_files_before_linting(self):
         handwritten = self.project / "handwritten"
         generated = self.project / "generated"
-        for package in (handwritten, generated):
+        handwritten_neighbor = self.project / "handwritten-neighbor"
+        for package in (handwritten, generated, handwritten_neighbor):
             package.mkdir()
             (package / "Cargo.toml").write_text("[package]\n")
 
@@ -307,6 +333,11 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         target_directory = handwritten / "custom build output"
         (target_directory / "generated").mkdir(parents=True)
         (target_directory / "generated/ignored.rs").write_text("// build output\n" * 751)
+        (handwritten / "target").symlink_to(target_directory, target_is_directory=True)
+        assets = self.project / "assets"
+        assets.mkdir()
+        (assets / "README.md").write_text("No Rust source here.\n")
+        (handwritten / "docs").symlink_to(assets, target_is_directory=True)
         dependency = handwritten / "dependencies/third_party"
         dependency.mkdir(parents=True)
         (dependency / "Cargo.toml").write_text("[package]\n")
@@ -315,9 +346,13 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         (handwritten / "dependencies/handwritten.rs").write_text("// handwritten\n" * 750)
         (handwritten / "src").mkdir()
         (handwritten / "src/internal.rs").symlink_to(handwritten / "build.rs")
+        (handwritten_neighbor / "src").mkdir()
+        neighbor_source = handwritten_neighbor / "src/lib.rs"
+        neighbor_source.write_text("// handwritten neighbor\n" * 750)
+        (handwritten / "src/neighbor.rs").symlink_to(neighbor_source)
 
         metadata = {
-            "workspace_members": ["handwritten", "generated"],
+            "workspace_members": ["handwritten", "generated", "handwritten-neighbor"],
             "target_directory": str(target_directory),
             "packages": [
                 {
@@ -330,6 +365,11 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                     "name": "generated",
                     "manifest_path": str(generated / "Cargo.toml"),
                     "metadata": {"ci": {"generated": True}},
+                },
+                {
+                    "id": "handwritten-neighbor",
+                    "name": "handwritten-neighbor",
+                    "manifest_path": str(handwritten_neighbor / "Cargo.toml"),
                 },
                 {
                     "id": "dependency",
@@ -378,7 +418,19 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         external_link.symlink_to(outside)
         result, calls = self.run_check(**environment)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Rust source symlink escapes its workspace package", result.stderr)
+        self.assertIn("Rust source symlink escapes workspace package ownership", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+        external_link.unlink()
+        external_directory = self.root / "external-rust-sources"
+        external_directory.mkdir()
+        (external_directory / "source.rs").write_text("// external Rust source\n")
+        (handwritten / "docs-rust").symlink_to(external_directory, target_is_directory=True)
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "directory symlink targets Rust files outside package ownership", result.stderr
+        )
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
     def test_git_source_discovery_respects_ignored_and_tracked_files(self):
@@ -392,6 +444,9 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         target_directory.mkdir()
         (target_directory / "generated.rs").write_text("// build output\n" * 751)
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        readme = self.root / "README.md"
+        readme.write_text("External documentation, not Rust source.\n")
+        (self.project / "README.md").symlink_to(readme)
         subprocess.run(["git", "-C", str(self.project), "add", "-f", "tracked.rs"], check=True)
 
         metadata = {
@@ -491,6 +546,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             ("clippy", "", 3),
             ("test", "--all-targets", 4),
             ("metadata", "--format-version", 2),
+            ("metadata", "--no-deps", 5),
             ("test", "--doc", 6),
             ("build", "", 7),
         ]:
@@ -515,6 +571,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         result, calls = self.run_check(CHECKS="test build", CARGO_METADATA=json.dumps(metadata))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["test", "metadata", "build"])
+        self.assertIn("--no-deps", calls[1]["argv"])
         result, calls = self.run_check(CHECKS="test build", CARGO_METADATA="invalid JSON")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual([call["argv"][0] for call in calls], ["test", "metadata"])

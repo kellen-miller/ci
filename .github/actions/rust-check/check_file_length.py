@@ -14,7 +14,6 @@ try:
     workspace_members = set(metadata["workspace_members"])
     all_packages = metadata["packages"]
     target_directory = Path(metadata["target_directory"]).resolve()
-    packages = [package for package in all_packages if package["id"] in workspace_members]
 except (KeyError, TypeError, json.JSONDecodeError) as error:
     raise SystemExit(
         f"Invalid Cargo workspace metadata for Rust file-length check: {error}"
@@ -40,6 +39,27 @@ for package in all_packages:
         raise SystemExit(
             f"Invalid Cargo package metadata for Rust file-length check: {error}"
         ) from None
+
+
+def is_dependency_path(path, package_root):
+    return any(
+        root != package_root and root.is_relative_to(package_root) and path.is_relative_to(root)
+        for root in dependency_roots
+    )
+
+
+def contains_rust_source(directory):
+    for _, _, files in os.walk(
+        directory,
+        onerror=lambda error: sys.exit(
+            f"Cannot inspect Rust source symlink target: {error.filename}: {error}"
+        ),
+    ):
+        if any(name.endswith(".rs") for name in files):
+            return True
+
+    return False
+
 
 for root, generated in member_roots.items():
     if generated:
@@ -123,38 +143,55 @@ for path in sorted(candidates):
     package_root = max(package_roots, key=lambda root: len(root.parts))
     if member_roots[package_root] or path.is_relative_to(target_directory):
         continue
-    if any(path.is_relative_to(root) for root in dependency_roots):
+    if is_dependency_path(path, package_root):
+        continue
+    if not path.name.endswith(".rs") and not path.is_dir():
         continue
 
-    if path.is_symlink() and path.is_dir():
-        raise SystemExit(f"Rust source directory symlink cannot be scanned safely: {path}")
+    if path.is_symlink():
+        try:
+            resolved_path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise SystemExit(f"Cannot resolve Rust source symlink: {path}: {error}") from None
+
+        if resolved_path.is_relative_to(target_directory):
+            continue
+        if is_dependency_path(resolved_path, package_root):
+            raise SystemExit(
+                f"Rust source symlink points into a dependency package: {path} -> {resolved_path}"
+            )
+
+        resolved_owners = [root for root in member_roots if resolved_path.is_relative_to(root)]
+        resolved_owner = (
+            max(resolved_owners, key=lambda root: len(root.parts)) if resolved_owners else None
+        )
+        if resolved_owner is not None and member_roots[resolved_owner]:
+            raise SystemExit(
+                "Rust source symlink points into a generated workspace package: "
+                f"{path} -> {resolved_path}"
+            )
+        if path.is_dir():
+            if resolved_path.is_relative_to(package_root) or resolved_owner is not None:
+                continue
+            if contains_rust_source(resolved_path):
+                raise SystemExit(
+                    "Rust source directory symlink targets Rust files outside package ownership: "
+                    f"{path} -> {resolved_path}"
+                )
+            continue
+
+        if not resolved_path.is_relative_to(package_root) and resolved_owner is None:
+            raise SystemExit(
+                "Rust source symlink escapes workspace package ownership: "
+                f"{path} -> {resolved_path}"
+            )
+
     if not path.name.endswith(".rs"):
         continue
     if not path.is_file() and not path.is_symlink():
         continue
 
     try:
-        resolved_path = path.resolve(strict=True)
-        if not resolved_path.is_relative_to(package_root):
-            raise SystemExit(
-                f"Rust source symlink escapes its workspace package: {path} -> {resolved_path}"
-            )
-        if resolved_path.is_relative_to(target_directory):
-            raise SystemExit(
-                f"Rust source symlink points into Cargo target output: {path} -> {resolved_path}"
-            )
-        if any(resolved_path.is_relative_to(root) for root in dependency_roots):
-            raise SystemExit(
-                f"Rust source symlink crosses into a dependency package: {path} -> {resolved_path}"
-            )
-        if any(
-            root != package_root and resolved_path.is_relative_to(root) for root in member_roots
-        ):
-            raise SystemExit(
-                "Rust source symlink crosses workspace package ownership: "
-                f"{path} -> {resolved_path}"
-            )
-
         source = path.read_text(encoding="utf-8")
     except (OSError, RuntimeError, UnicodeError) as error:
         raise SystemExit(
