@@ -409,12 +409,15 @@ The `Release Rust runtime` workflow runs on pushes to `main` and manual dispatch
 on `main`. It uses the shared Conventional Commit release action to calculate
 versions, starting at `0.1.0`. A commit without a release-triggering change skips
 build and publication. All five platform archives must pass native qualification
-before the workflow publishes `v<version>` and uploads the qualified assets in
-the same run. If Cargo and loader versions need updating, the workflow first
-opens a metadata PR and dispatches its CI explicitly. Merge that PR after checks
-and review; its push to `main` resumes qualification and release. No direct
-push to protected `main` is required. Enable GitHub Actions to create PRs in
-repository Actions settings.
+before publication. The workflow synchronizes Cargo and loader metadata with a
+`chore(release): <version> [skip ci]` commit directly to `main`, then all platform
+builds and publication check out that exact commit. A repository-specific SSH
+key, stored as `RUNTIME_RELEASE_SSH_KEY`, bypasses PR and required-check rules
+for this metadata push. `.github/rulesets/repositories.json` owns this exception;
+force-push protection remains enforced. Ordinary changes still require PRs.
+The skip marker prevents the metadata push from starting a second release run;
+the current run continues through qualification and publication. A concurrent
+update to `main` rejects the push instead of overwriting it; retry on current main.
 The workflow uses its freshly built binary, so the first release does not depend
 on an existing runtime. GitHub's token-generated tag does not need to trigger a
 second workflow.
