@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: kellen-miller/ci/.github/actions/helm-lint-charts@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+      - uses: kellen-miller/ci/.github/actions/helm-lint-charts@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           charts-root: ${{ inputs.charts-root }}
           values-file-pattern: ${{ inputs.values-file-pattern }}

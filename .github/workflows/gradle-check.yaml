@@ -40,15 +40,9 @@ jobs:
         with:
           cache-provider: basic
       - name: Run Gradle validation
-        shell: bash
-        working-directory: ${{ inputs.working-directory }}
         env:
           GRADLE_ARGUMENTS: ${{ inputs.arguments }}
-        run: |
-          read -ra arguments <<< "$GRADLE_ARGUMENTS"
-          if [[ ${#arguments[@]} -eq 0 ]]; then
-            echo "At least one Gradle argument is required" >&2
-            exit 1
-          fi
-
-          ./gradlew "${arguments[@]}"
+        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
+        with:
+          operation: gradle-check
+          working-directory: ${{ inputs.working-directory }}

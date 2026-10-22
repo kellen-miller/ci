@@ -35,4 +35,4 @@ runs:
         CPD_CONFIG: ${{ inputs.config }}
         CPD_THRESHOLD: ${{ inputs.threshold }}
         CPD_REPORTERS: ${{ inputs.reporters }}
-      run: bash "$GITHUB_ACTION_PATH/check.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" code-duplication

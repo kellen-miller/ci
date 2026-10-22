@@ -1,4 +1,4 @@
-# Read by the shared Rust check script. Groups precede individual lints.
+# Read by the shared Rust check command. Groups precede individual lints.
 
 [rust]
 unsafe_op_in_unsafe_fn = "deny"

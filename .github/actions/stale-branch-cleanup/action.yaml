@@ -26,5 +26,4 @@ runs:
         STALE_DAYS: ${{ inputs.stale-days }}
         WARNING_DAYS: ${{ inputs.warning-days }}
         DRY_RUN: ${{ inputs.dry-run }}
-      run: |
-        python3 "$GITHUB_ACTION_PATH/cleanup.py"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" stale-branch-cleanup

@@ -46,7 +46,7 @@ runs:
         INPUT_PM: ${{ inputs.package-manager }}
         INPUT_NODE: ${{ inputs.node-version }}
         INPUT_WD: ${{ inputs.working-directory }}
-      run: python3 "$GITHUB_ACTION_PATH/detect.py"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" node-detect
     - name: Set up runtime before package managers
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
       with:
@@ -88,4 +88,4 @@ runs:
         EXTRA_ARGS: ${{ inputs.install-args }}
         PNPM_MINIMUM_RELEASE_AGE: ${{ inputs.pnpm-minimum-release-age }}
         PNPM_STRICT_DEP_BUILDS: ${{ inputs.pnpm-strict-dep-builds }}
-      run: bash "$GITHUB_ACTION_PATH/install.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" node-install

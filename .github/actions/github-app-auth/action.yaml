@@ -36,8 +36,4 @@ runs:
       env:
         GH_TOKEN: ${{ steps.token.outputs.token }}
         SLUG: ${{ steps.token.outputs.app-slug }}
-      run: |
-        login="${SLUG}[bot]"
-        user_id="$(gh api "users/$login" --jq .id)"
-        git config --local user.name "$login"
-        git config --local user.email "$user_id+$login@users.noreply.github.com"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" configure-bot

@@ -45,4 +45,4 @@ runs:
         ALL_FEATURES: ${{ inputs.all-features }}
         BUILD_PROFILE: ${{ inputs.build-profile }}
         POLICY_DIRECTORY: ${{ inputs.policy-directory }}
-      run: bash "$GITHUB_ACTION_PATH/check.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" rust-check

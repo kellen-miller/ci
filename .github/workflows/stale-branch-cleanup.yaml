@@ -32,14 +32,9 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           OWNER: ${{ github.repository_owner }}
-        run: |
-          repositories=$(gh api --paginate '/installation/repositories?per_page=100' \
-            --jq '.repositories[] | select(.owner.login == env.OWNER and .archived == false and .fork == false) | .full_name')
-          {
-            echo 'names<<REPOSITORIES'
-            echo "$repositories"
-            echo 'REPOSITORIES'
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/run
+        with:
+          operation: discover-repositories
       - name: Clean up stale branches
         if: steps.repositories.outputs.names != ''
         uses: ./.github/actions/stale-branch-cleanup

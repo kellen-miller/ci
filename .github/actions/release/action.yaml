@@ -72,5 +72,4 @@ runs:
         FIRST_RELEASE_VERSION: ${{ inputs.first-release-version }}
         PRELAUNCH: ${{ inputs.prelaunch }}
         DRY_RUN: ${{ inputs.dry-run }}
-      run: |
-        node "$GITHUB_ACTION_PATH/semantic-release/run.mjs"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" release

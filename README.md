@@ -35,7 +35,8 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 20 reusable workflows and one repository CI workflow. Workflows remain
+There are 20 reusable workflows, plus repository CI, stale branch maintenance,
+and Rust runtime releases. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -229,9 +230,9 @@ revision. It passes lint levels from `lints.toml` as Clippy arguments, selects
 formatter. Cargo manifests and project configuration files are not rewritten.
 Set `policy-directory` only to replace all three policy files explicitly.
 
-The action requires Bash and Python 3.11 or newer, available on GitHub-hosted
-Linux and macOS runners. The script validates inputs and selected policy before
-running Cargo, rejects multiline script inputs, and stops on the first failure.
+The action requires Bash and the verified Rust runtime. Rust validates inputs
+and selected policy before running Cargo, rejects multiline script inputs, and
+stops on the first failure.
 Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
 Every dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
 Clippy adds `--all-targets`, the shared lint flags, and `-D warnings`.
@@ -354,42 +355,82 @@ For Reviewdog, use `reporter: local`, `filter_mode: nofilter`, `fail_level: any`
 PR-title validation needs `pull-requests: read` and its GitHub token environment.
 Keep consumer policy and configuration in the consuming repository.
 
-## Local validation
+## Rust implementation and validation
 
-Install `uv`, `actionlint`, `shellcheck`, `helm`, `golangci-lint`, Go, Node/npm and
-Rust with the `rustfmt` and `clippy` components already installed.
-The repository's own CI installs its required tools and runs the same command:
+Custom action logic, workflow orchestration, maintenance commands and regression
+tests live in one Cargo package. `src/main.rs` lists the supported operations;
+modules own filesystem, GitHub, Rust, Node, Helm, release and publishing behavior.
+Actions retain their existing inputs and outputs.
 
-```bash
-uv sync --locked
-uv run python scripts/check.py
-```
-
-Tests run real Helm rendering, real Go formatting and real frozen npm installs.
-Rust regressions invoke the actual check script with a recording Cargo stub and
-offline, dependency-free temporary library and binary packages. They run
-formatting, Clippy, all-target tests, doctests and debug/release builds. Regression
-cases check nonmutating format failure, Clippy warnings and failing tests. It generates its lockfile with
-`cargo generate-lockfile --offline`; tests never install Rust toolchains/components
-or download crate dependencies. Run just these tests with
-`uv run python -m unittest discover -s tests -p test_rust_check.py -v`.
-Additional regressions cover YAML policy, checksum rejection, duplication failures,
-generated-file cleanup, cache overrides and branch warning/deletion boundaries.
-Release tests use temporary local Git repositories, including real semantic-release
-dry runs. Hosted publishing/deployment/authentication has not run.
-
-When changing shared actions, commit them before updating workflow pins:
+Install Rust with rustfmt and Clippy, plus `actionlint`, `yamllint`, `shellcheck`,
+Helm, golangci-lint, Go, Node/npm and GitHub CLI. External ecosystem tools retain
+their own runtimes; the reusable Python workflows still serve Python projects.
 
 ```bash
-git add .github/actions
-git commit -m "fix: correct lint execution"
-uv run python scripts/pin-actions.py HEAD
-# Review the workflow pin changes, validate, then commit them.
+cargo test --locked --all-targets
+cargo run --locked -- check
 ```
 
-The pin command refuses action changes that differ from the selected commit.
-The action snapshot must be included in the eventual pushed history. Publish and
-release only after review and passing CI.
+`check` applies the bundled Rust policy, YAML/workflow/shell checks, Go config
+verification, the pinned Renovate validator, and release integration tests.
+Regression tests use Rust fixtures and local HTTP/Git servers. They cover real
+Helm rendering, Go formatting, frozen npm installs, offline Cargo checks, source
+ownership/line counting, output safety, and branch warning/deletion boundaries.
+Real semantic-release dry runs require the committed npm dependencies; `check`
+installs them and runs those otherwise ignored Rust tests. No test publishes a
+release, deletes a real branch, or uses cloud credentials.
+
+Production JavaScript is limited to two adapters required by semantic-release's
+Node API and plugin callbacks. Rust owns release orchestration, default policy,
+path filtering and tests. One caller-plugin fixture exercises the Node object API.
+YAML, TOML, JSON and caller release configuration remain
+in the formats required by their tools. Shell steps contain short native tool
+invocations; `.github/actions/run.sh` bootstraps the executable.
+
+## Runtime binaries and action pins
+
+External actions download the fixed `ci-v<version>` release selected by
+`runtime-version`. The loader selects Linux x64/arm64, macOS x64/arm64, or Windows
+x64; verifies SHA-256 against that release's checksum record; then extracts and
+executes the archive. The binary also checks its embedded Rust source identity
+against the action checkout and rejects a stale runtime before running operations.
+Linux binaries use musl for static linking. The job caches
+archives under `runner.temp` and verifies them on every invocation. No Cargo or
+Python interpreter is required for the shared Rust runtime.
+The loader requires `RUNNER_TEMP`; GitHub Actions provides this private job directory.
+
+Repository CI builds the current checkout first and explicitly supplies
+`CI_BINARY`; local development can do the same. This override executes the given
+binary directly, allowing PR tests without a published release. Bundled policy
+and required Node adapters come from the selected action checkout through
+`CI_ROOT`.
+
+The `Release Rust runtime` workflow builds all five platform archives and checksum
+records. Each native runner executes its packaged binary through the checksum
+loader and checks script argument handling before upload. Manual dispatch builds
+downloadable artifacts; a `ci-v<version>` tag also
+publishes them. Cargo's package version, `runtime-version`, and the release tag
+must agree. Publish the runtime assets before upgrading consumers to an action
+revision that needs them. Release assets and checksum records are trusted as
+GitHub release content; keep those versioned assets immutable. A workflow commit
+pin alone does not prevent a release owner from replacing assets.
+
+Git path output must be UTF-8; malformed filenames fail validation. Credential
+copies use mode 0600 on Unix and inherit the runner temporary directory's ACLs
+on Windows. Windows script tools run through the Bash required by these actions.
+
+After changing implementation, commit it before updating internal action pins:
+
+```bash
+git add Cargo.toml Cargo.lock build.rs src config runtime-version .github/actions
+git commit -m "refactor: update CI operation"
+cargo run --locked -- pin-actions HEAD
+```
+
+The pin command rejects differences in actions, Rust sources, Cargo inputs,
+policy and runtime version, including untracked implementation files. It verifies
+the selected snapshot contains the executable and referenced actions. Review and
+validate the resulting workflow pins before publication.
 
 ## CI path gates
 
@@ -399,7 +440,7 @@ to booleans. Run it after checkout with `fetch-depth: 0` in the caller job.
 PR diffs use their merge base, with deletions and both rename paths included.
 Other events select every group. No reusable workflow wrapper is needed.
 
-Globs use Python fnmatch semantics: `*` includes slashes, and a leading `**/`
+Globs preserve fnmatch semantics: `*` includes slashes, and a leading `**/`
 also matches root files. Negative patterns are rejected. Detection errors fail
 rather than skipping checks. Callers must run their validation on detector
 failure, using this condition on jobs that need `changes`:
@@ -417,5 +458,5 @@ The shared Actions lint workflow gates lint/security steps internally; its
 required check remains successful when those inputs have not changed.
 
 This repository gates individual validation phases and their expensive tool
-setup. Local `scripts/check.py` calls without `CI_CHANGED_GROUPS` still run all
-checks. The selected group map is supplied only by the CI detector.
+setup. Local `cargo run --locked -- check` calls without `CI_CHANGED_GROUPS` run
+all checks. The selected group map is supplied only by the CI detector.

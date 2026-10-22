@@ -19,5 +19,4 @@ runs:
       env:
         VERSION: ${{ inputs.version }}
         REPO: ${{ inputs.repo }}
-      run: |
-        bash "$GITHUB_ACTION_PATH/scripts/resolve.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" resolve-github-release

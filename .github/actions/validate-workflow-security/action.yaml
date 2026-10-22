@@ -13,28 +13,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-      with:
-        python-version: '3.14'
-    - name: Install YAML parser
-      shell: bash
-      run: >-
-        python -m pip install --disable-pip-version-check
-        -r "$GITHUB_ACTION_PATH/requirements.txt"
     - name: Validate workflows
       shell: bash
       env:
         SCAN_ROOT: ${{ inputs.root }}
         ALLOW_TARGET: ${{ inputs.allow-pull-request-target }}
         ALLOW_INHERIT: ${{ inputs.allow-secret-inheritance }}
-      run: |
-        args=(--root "$SCAN_ROOT")
-        if [[ "$ALLOW_TARGET" == true ]]; then
-          args+=(--allow-pull-request-target)
-        fi
-
-        if [[ "$ALLOW_INHERIT" == true ]]; then
-          args+=(--allow-secret-inheritance)
-        fi
-
-        python "$GITHUB_ACTION_PATH/validate.py" "${args[@]}"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" workflow-security

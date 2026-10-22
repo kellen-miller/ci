@@ -1,0 +1,31 @@
+name: Run CI operation
+description: Execute a custom CI operation using the verified versioned Rust runtime
+inputs:
+  operation:
+    description: Rust CI subcommand
+    required: true
+  working-directory:
+    description: Directory in which to execute the operation
+    default: .
+outputs:
+  matrix:
+    description: Resolved Docker build matrix
+    value: ${{ steps.execute.outputs.matrix }}
+  digest:
+    description: Published manifest digest
+    value: ${{ steps.execute.outputs.digest }}
+  validate:
+    description: Whether selected validation inputs changed
+    value: ${{ steps.execute.outputs.validate }}
+  names:
+    description: Eligible repository names
+    value: ${{ steps.execute.outputs.names }}
+runs:
+  using: composite
+  steps:
+    - id: execute
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CI_OPERATION: ${{ inputs.operation }}
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" "$CI_OPERATION"

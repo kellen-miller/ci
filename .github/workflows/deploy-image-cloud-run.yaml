@@ -107,7 +107,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Authenticate with Google Cloud
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}

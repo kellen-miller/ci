@@ -21,7 +21,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - id: paths
-        uses: kellen-miller/ci/.github/actions/changed-paths@097cf6c50e53d046768c2479a673ab96e3127744
+        uses: kellen-miller/ci/.github/actions/changed-paths@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           filters: >-
             {"workflows":[".github/**","action.yml","action.yaml",".actionlint*","actionlint*",".shellcheckrc",".zizmor*","zizmor*"]}
@@ -31,7 +31,7 @@ jobs:
           reporter: local
           filter_mode: nofilter
           fail_level: any
-      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@fd05465d1e81e3b14487324bff165b81920a16a8
         if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           allow-pull-request-target: ${{ inputs.allow-pull-request-target }}

@@ -36,8 +36,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         LINT_CONFIG: ${{ inputs.config }}
-      run: |
-        python3 "$GITHUB_ACTION_PATH/config.py" --github-output
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" go-config-output
     - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
       with:
         version: ${{ inputs.golangci-lint-version }}
@@ -48,7 +47,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         LINT_CONFIG: ${{ inputs.config }}
-      run: bash "$GITHUB_ACTION_PATH/format.sh"
+      run: bash "$GITHUB_ACTION_PATH/../run.sh" go-format
     - name: Install and run govulncheck
       if: inputs.vulnerability-check == 'true'
       shell: bash

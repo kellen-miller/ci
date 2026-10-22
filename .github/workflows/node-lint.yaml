@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: kellen-miller/ci/.github/actions/setup-node@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+      - uses: kellen-miller/ci/.github/actions/setup-node@fd05465d1e81e3b14487324bff165b81920a16a8
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}
@@ -67,26 +67,12 @@ jobs:
           pnpm-strict-dep-builds: ${{ inputs.pnpm-strict-dep-builds }}
         id: setup
       - name: Run repository checks
-        working-directory: ${{ inputs.working-directory }}
         env:
           PM: ${{ steps.setup.outputs.package-manager }}
           CHECK_SCRIPT: ${{ inputs.check-script }}
           FORMAT_SCRIPT: ${{ inputs.format-script }}
           LINT_SCRIPT: ${{ inputs.lint-script }}
-        run: |
-          if [[ -z "$FORMAT_SCRIPT" && -z "$CHECK_SCRIPT" && -z "$LINT_SCRIPT" ]]; then
-            echo "At least one format, check or lint script is required" >&2
-            exit 1
-          fi
-
-          if [[ -n "$FORMAT_SCRIPT" ]]; then
-            "$PM" run "$FORMAT_SCRIPT"
-          fi
-
-          if [[ -n "$CHECK_SCRIPT" ]]; then
-            "$PM" run "$CHECK_SCRIPT"
-          fi
-
-          if [[ -n "$LINT_SCRIPT" ]]; then
-            "$PM" run "$LINT_SCRIPT"
-          fi
+        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
+        with:
+          operation: node-checks
+          working-directory: ${{ inputs.working-directory }}
