@@ -92,31 +92,21 @@ pub fn check() -> Result<()> {
         }
     }
 
-    run(
-        "rust",
-        "cargo",
-        &[
-            "fmt",
-            "--all",
-            "--",
-            "--check",
-            "--config-path",
-            "config/rust/rustfmt.toml",
-        ],
-    )?;
-    run(
-        "rust",
-        "cargo",
-        &[
-            "clippy",
-            "--locked",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ],
-    )?;
-    run("rust", "cargo", &["test", "--locked", "--all-targets"])?;
+    if enabled("rust") {
+        command::run(
+            Command::new(env::current_exe()?)
+                .arg("rust-check")
+                .current_dir(&root)
+                .env("CI_ROOT", &root)
+                .env("WORKING_DIRECTORY", &root)
+                .env("CHECKS", "fmt clippy test")
+                .env("SETUP_TOOLCHAIN", "false")
+                .env("POLICY_DIRECTORY", "")
+                .env("ALL_FEATURES", "true")
+                .env("BUILD_PROFILE", "dev"),
+        )?;
+    }
+
     if enabled("release") {
         command::run(
             Command::new("npm")

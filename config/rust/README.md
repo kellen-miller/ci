@@ -14,7 +14,7 @@ After checkout, invoke the shared action:
     checks: fmt clippy test build
 ```
 
-The script reads `lints.toml` and passes compiler and Clippy lint levels as
+The Rust executable reads `lints.toml` and passes compiler and Clippy lint levels as
 arguments. Groups precede individual lints in that file so later entries can
 refine group settings. Valid levels are `allow`, `warn`, `deny`, and `forbid`.
 It sets `CLIPPY_CONF_DIR` to this directory and passes an explicit rustfmt config
@@ -47,15 +47,15 @@ The override replaces the policy; configurations are not merged. Missing require
 files and invalid lint-level entries fail before any Cargo command runs. Clippy
 and rustfmt validate their own configuration files.
 
-Local checks can invoke the same script from an existing policy checkout:
+Local checks can invoke the same command from an existing policy checkout:
 
 ```bash
 SETUP_TOOLCHAIN=false WORKING_DIRECTORY=. CHECKS='fmt clippy' \
-  bash /path/to/ci/.github/actions/rust-check/check.sh
+  cargo run --locked --manifest-path /path/to/ci/Cargo.toml -- rust-check
 ```
 
-Use Bash, Python 3.11+, and Cargo with rustfmt and Clippy installed. Pin the
-checkout to the same revision as CI. The script does not install a local
+Use Cargo with rustfmt and Clippy installed. Pin the checkout to the same revision
+as CI. The command does not install a local
 toolchain or rewrite project files. Native `cargo clippy` and `cargo fmt`
 commands alone do not load this external policy.
 
