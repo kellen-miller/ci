@@ -57,7 +57,7 @@ for check in "${checks[@]}"; do
 done
 
 workspace_args=(--locked --workspace)
-metadata_args=(--locked --no-deps --format-version 1)
+metadata_args=(--locked --format-version 1)
 if [[ "$ALL_FEATURES" == true ]]; then
   workspace_args+=(--all-features)
   metadata_args+=(--all-features)
@@ -113,7 +113,9 @@ for check in "${checks[@]}"; do
       cargo fmt --all -- --check --config-path "$policy_directory/rustfmt.toml"
       ;;
     clippy)
-      clippy_selection=$(cargo metadata "${metadata_args[@]}" | python3 -c '
+      workspace_metadata=$(cargo metadata "${metadata_args[@]}")
+      printf '%s\n' "$workspace_metadata" | python3 "$script_directory/check_file_length.py"
+      clippy_selection=$(printf '%s\n' "$workspace_metadata" | python3 -c '
 import json
 import sys
 

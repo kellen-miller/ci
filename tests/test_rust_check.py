@@ -20,6 +20,7 @@ class RustCheckTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.project = self.root / "workspace with spaces"
         self.project.mkdir()
+        (self.project / "Cargo.toml").write_text('[package]\nname = "fixture"\n')
         self.log = self.root / "cargo.jsonl"
         self.bin = self.root / "bin"
         self.bin.mkdir()
@@ -55,8 +56,14 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 "CARGO_METADATA": json.dumps(
                     {
                         "workspace_members": ["fixture"],
+                        "target_directory": str(self.root / "custom target output"),
                         "packages": [
-                            {"id": "fixture", "name": "fixture", "targets": [{"doctest": True}]}
+                            {
+                                "id": "fixture",
+                                "name": "fixture",
+                                "manifest_path": str(self.project / "Cargo.toml"),
+                                "targets": [{"doctest": True}],
+                            }
                         ],
                     }
                 ),
@@ -103,7 +110,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             [call["argv"] for call in calls[3:]],
             [
                 ["test", "--locked", "--workspace", "--all-features", "--all-targets"],
-                ["metadata", "--locked", "--no-deps", "--format-version", "1", "--all-features"],
+                ["metadata", "--locked", "--format-version", "1", "--all-features"],
                 ["test", "--locked", "--workspace", "--all-features", "--doc"],
                 [
                     "build",
@@ -131,7 +138,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             [
                 ["build", "--locked", "--workspace", "--all-targets", "--profile", "release"],
                 ["test", "--locked", "--workspace", "--all-targets"],
-                ["metadata", "--locked", "--no-deps", "--format-version", "1"],
+                ["metadata", "--locked", "--format-version", "1"],
                 ["test", "--locked", "--workspace", "--doc"],
             ],
         )
@@ -177,13 +184,45 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 self.assertEqual(calls, [])
 
     def test_only_exact_generated_workspace_metadata_excludes_clippy_packages(self):
+        package_manifests = {}
+        for name in ("app", "proto", "sql"):
+            package = self.project / name
+            package.mkdir()
+            package_manifests[name] = package / "Cargo.toml"
+            package_manifests[name].write_text("[package]\n")
+        dependency = self.project / "dependency"
+        dependency.mkdir()
+        dependency_manifest = dependency / "Cargo.toml"
+        dependency_manifest.write_text("[package]\n")
+
         metadata = {
             "workspace_members": ["app", "proto", "sql"],
+            "target_directory": str(self.root / "custom target output"),
             "packages": [
-                {"id": "app", "name": "app", "metadata": None},
-                {"id": "proto", "name": "proto", "metadata": {"ci": {"generated": True}}},
-                {"id": "sql", "name": "sql", "metadata": {"ci": {"generated": True}}},
-                {"id": "dependency", "name": "dependency", "metadata": {"ci": {"generated": True}}},
+                {
+                    "id": "app",
+                    "name": "app",
+                    "manifest_path": str(package_manifests["app"]),
+                    "metadata": None,
+                },
+                {
+                    "id": "proto",
+                    "name": "proto",
+                    "manifest_path": str(package_manifests["proto"]),
+                    "metadata": {"ci": {"generated": True}},
+                },
+                {
+                    "id": "sql",
+                    "name": "sql",
+                    "manifest_path": str(package_manifests["sql"]),
+                    "metadata": {"ci": {"generated": True}},
+                },
+                {
+                    "id": "dependency",
+                    "name": "dependency",
+                    "manifest_path": str(dependency_manifest),
+                    "metadata": {"ci": {"generated": True}},
+                },
             ],
         }
         for value in (
@@ -216,11 +255,17 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
                 )
 
     def test_all_generated_workspace_skips_only_clippy(self):
+        package = self.project / "proto"
+        package.mkdir()
+        manifest = package / "Cargo.toml"
+        manifest.write_text("[package]\n")
         metadata = {
             "workspace_members": ["proto"],
+            "target_directory": str(self.root / "custom target output"),
             "packages": [
                 {
                     "id": "proto",
+                    "manifest_path": str(manifest),
                     "name": "proto",
                     "metadata": {"ci": {"generated": True}},
                     "targets": [{"doctest": True}],
@@ -239,6 +284,137 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
     def test_clippy_metadata_errors_fail_before_linting(self):
         result, calls = self.run_check(CHECKS="clippy build", CARGO_METADATA="invalid JSON")
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+    def test_clippy_checks_handwritten_rust_files_before_linting(self):
+        handwritten = self.project / "handwritten"
+        generated = self.project / "generated"
+        for package in (handwritten, generated):
+            package.mkdir()
+            (package / "Cargo.toml").write_text("[package]\n")
+
+        fixture = handwritten / "tests/fixtures/fixture.rs"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_text("// UTF-8 comment: café\u2028same line\u0085still same line\n\n" * 375)
+        (handwritten / "build.rs").write_text("// build script\n" * 749 + "// final line")
+        fixture_package = handwritten / "fixture-package"
+        (fixture_package / "src").mkdir(parents=True)
+        (fixture_package / "Cargo.toml").write_text("[package]\n")
+        fixture_package_source = fixture_package / "src/lib.rs"
+        fixture_package_source.write_text("// nested fixture package\n" * 750)
+        (generated / "src").mkdir()
+        (generated / "src/generated.rs").write_text("// generated\n" * 751)
+        target_directory = handwritten / "custom build output"
+        (target_directory / "generated").mkdir(parents=True)
+        (target_directory / "generated/ignored.rs").write_text("// build output\n" * 751)
+        dependency = handwritten / "dependencies/third_party"
+        dependency.mkdir(parents=True)
+        (dependency / "Cargo.toml").write_text("[package]\n")
+        (dependency / "src").mkdir()
+        (dependency / "src/ignored.rs").write_text("// dependency\n" * 751)
+        (handwritten / "dependencies/handwritten.rs").write_text("// handwritten\n" * 750)
+        (handwritten / "src").mkdir()
+        (handwritten / "src/internal.rs").symlink_to(handwritten / "build.rs")
+
+        metadata = {
+            "workspace_members": ["handwritten", "generated"],
+            "target_directory": str(target_directory),
+            "packages": [
+                {
+                    "id": "handwritten",
+                    "name": "handwritten",
+                    "manifest_path": str(handwritten / "Cargo.toml"),
+                },
+                {
+                    "id": "generated",
+                    "name": "generated",
+                    "manifest_path": str(generated / "Cargo.toml"),
+                    "metadata": {"ci": {"generated": True}},
+                },
+                {
+                    "id": "dependency",
+                    "name": "dependency",
+                    "manifest_path": str(dependency / "Cargo.toml"),
+                },
+            ],
+        }
+        environment = {"CHECKS": "clippy", "CARGO_METADATA": json.dumps(metadata)}
+        result, calls = self.run_check(**environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
+
+        fixture.write_text("// test fixture\n" * 750 + "// unterminated final line")
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture.rs", result.stderr)
+        self.assertIn("(751 lines)", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+        fixture.write_bytes(b"// invalid UTF-8: \xff\n")
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Cannot read Rust source for file-length check", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+        fixture.write_text("// test fixture\n" * 750)
+        fixture_package_source.write_text("// fixture package\n" * 751)
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture-package/src/lib.rs", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+        fixture_package_source.write_text("// fixture package\n" * 750)
+        handwritten_dependency_path = handwritten / "dependencies/handwritten.rs"
+        handwritten_dependency_path.write_text("// handwritten dependency path\n" * 751)
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("dependencies/handwritten.rs", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+        handwritten_dependency_path.write_text("// handwritten dependency path\n" * 750)
+        outside = self.root / "outside.rs"
+        outside.write_text("// external target\n")
+        external_link = handwritten / "src/outside.rs"
+        external_link.symlink_to(outside)
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Rust source symlink escapes its workspace package", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+    def test_git_source_discovery_respects_ignored_and_tracked_files(self):
+        (self.project / ".gitignore").write_text(".agent/work/\ntracked.rs\n")
+        tracked = self.project / "tracked.rs"
+        tracked.write_text("// tracked source\n" * 750)
+        archive = self.project / ".agent/work/archive.rs"
+        archive.parent.mkdir(parents=True)
+        archive.write_text("// ignored archive\n" * 751)
+        target_directory = self.project / "custom cargo output"
+        target_directory.mkdir()
+        (target_directory / "generated.rs").write_text("// build output\n" * 751)
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+        subprocess.run(["git", "-C", str(self.project), "add", "-f", "tracked.rs"], check=True)
+
+        metadata = {
+            "workspace_members": ["fixture"],
+            "target_directory": str(target_directory),
+            "packages": [
+                {
+                    "id": "fixture",
+                    "name": "fixture",
+                    "manifest_path": str(self.project / "Cargo.toml"),
+                }
+            ],
+        }
+        environment = {"CHECKS": "clippy", "CARGO_METADATA": json.dumps(metadata)}
+        result, calls = self.run_check(**environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
+
+        tracked.write_text("// tracked source\n" * 751)
+        result, calls = self.run_check(**environment)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("tracked.rs", result.stderr)
+        self.assertIn("(751 lines)", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
     def test_every_check_can_run_independently(self):
@@ -314,7 +490,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
             ("metadata", "", 2),
             ("clippy", "", 3),
             ("test", "--all-targets", 4),
-            ("metadata", "--no-deps", 2),
+            ("metadata", "--format-version", 2),
             ("test", "--doc", 6),
             ("build", "", 7),
         ]:
@@ -328,7 +504,11 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         metadata = {
             "workspace_members": ["binary"],
             "packages": [
-                {"id": "binary", "targets": [{"doctest": False}]},
+                {
+                    "id": "binary",
+                    "manifest_path": str(self.project / "Cargo.toml"),
+                    "targets": [{"doctest": False}],
+                },
                 {"id": "dependency", "targets": [{"doctest": True}]},
             ],
         }

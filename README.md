@@ -235,6 +235,12 @@ running Cargo, rejects multiline script inputs, and stops on the first failure.
 Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
 Every dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
 Clippy adds `--all-targets`, the shared lint flags, and `-D warnings`.
+Before Clippy, it caps checked-out Rust source candidates in handwritten
+workspace packages at 750 physical lines, including comments and blank lines.
+Tracked files remain in scope even when ignored; untracked ignored files are
+excluded. Cargo dependency roots and the metadata-reported target directory are
+excluded, while Rust source symlinks that cross package ownership fail clearly.
+Generated workspace members use the same explicit metadata exclusion as Clippy.
 Tests use `--all-targets`, then `--doc`
 when locked Cargo metadata identifies a workspace target with doctests enabled.
 Binary-only workspaces skip that second command; metadata failures fail the check.
