@@ -236,9 +236,10 @@ Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`
 Every dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
 Clippy adds `--all-targets`, the shared lint flags, and `-D warnings`.
 When `clippy` is selected, the action first caps checked-out Rust source
-candidates in handwritten workspace packages at 750 physical lines, including
-comments and blank lines. Checks without `clippy` do not run this file-length
-check.
+candidates in handwritten workspace packages at 750 nonblank, noncomment code
+lines. Rust string contents, including multiline raw strings, and code on lines
+with trailing comments count; comments and blank lines do not. Checks without
+`clippy` do not run this file-length check.
 Tracked files remain in scope even when ignored; untracked ignored files are
 excluded. Nested Cargo dependency roots and Cargo's metadata-reported target
 directory are excluded. Rust symlinks to external, dependency, or generated

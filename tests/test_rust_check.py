@@ -296,7 +296,7 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         manifest = workspace / "Cargo.toml"
         manifest.write_text("[package]\n")
         source = workspace / "src/lib.rs"
-        source.write_text("// nested handwritten workspace\n" * 751)
+        source.write_text("".join(f"fn nested_{index}() {{}}\n" for index in range(751)))
         metadata = {
             "workspace_members": ["fuzz"],
             "target_directory": str(self.root / "fuzz target"),
@@ -321,18 +321,29 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
 
         fixture = handwritten / "tests/fixtures/fixture.rs"
         fixture.parent.mkdir(parents=True)
-        fixture.write_text("// UTF-8 comment: café\u2028same line\u0085still same line\n\n" * 375)
-        (handwritten / "build.rs").write_text("// build script\n" * 749 + "// final line")
+        fixture.write_text(
+            "// UTF-8 comment: café\u2028same line\u0085still same line\n\n" * 375
+            + "".join(f"fn fixture_{index}() {{}}\n" for index in range(750))
+        )
+        (handwritten / "build.rs").write_text(
+            "".join(f"fn build_{index}() {{}}\n" for index in range(749)) + "fn final_line() {}"
+        )
         fixture_package = handwritten / "fixture-package"
         (fixture_package / "src").mkdir(parents=True)
         (fixture_package / "Cargo.toml").write_text("[package]\n")
         fixture_package_source = fixture_package / "src/lib.rs"
-        fixture_package_source.write_text("// nested fixture package\n" * 750)
+        fixture_package_source.write_text(
+            "".join(f"fn fixture_{index}() {{}}\n" for index in range(750))
+        )
         (generated / "src").mkdir()
-        (generated / "src/generated.rs").write_text("// generated\n" * 751)
+        (generated / "src/generated.rs").write_text(
+            "".join(f"fn generated_{index}() {{}}\n" for index in range(751))
+        )
         target_directory = handwritten / "custom build output"
         (target_directory / "generated").mkdir(parents=True)
-        (target_directory / "generated/ignored.rs").write_text("// build output\n" * 751)
+        (target_directory / "generated/ignored.rs").write_text(
+            "".join(f"fn output_{index}() {{}}\n" for index in range(751))
+        )
         (handwritten / "target").symlink_to(target_directory, target_is_directory=True)
         assets = self.project / "assets"
         assets.mkdir()
@@ -342,13 +353,17 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         dependency.mkdir(parents=True)
         (dependency / "Cargo.toml").write_text("[package]\n")
         (dependency / "src").mkdir()
-        (dependency / "src/ignored.rs").write_text("// dependency\n" * 751)
-        (handwritten / "dependencies/handwritten.rs").write_text("// handwritten\n" * 750)
+        (dependency / "src/ignored.rs").write_text(
+            "".join(f"fn dependency_{index}() {{}}\n" for index in range(751))
+        )
+        (handwritten / "dependencies/handwritten.rs").write_text(
+            "".join(f"fn handwritten_{index}() {{}}\n" for index in range(750))
+        )
         (handwritten / "src").mkdir()
         (handwritten / "src/internal.rs").symlink_to(handwritten / "build.rs")
         (handwritten_neighbor / "src").mkdir()
         neighbor_source = handwritten_neighbor / "src/lib.rs"
-        neighbor_source.write_text("// handwritten neighbor\n" * 750)
+        neighbor_source.write_text("".join(f"fn neighbor_{index}() {{}}\n" for index in range(750)))
         (handwritten / "src/neighbor.rs").symlink_to(neighbor_source)
 
         metadata = {
@@ -383,7 +398,10 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
 
-        fixture.write_text("// test fixture\n" * 750 + "// unterminated final line")
+        fixture.write_text(
+            "".join(f"fn test_{index}() {{}}\n" for index in range(750))
+            + "fn unterminated_final_line() {}"
+        )
         result, calls = self.run_check(**environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("fixture.rs", result.stderr)
@@ -396,22 +414,30 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertIn("Cannot read Rust source for file-length check", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
-        fixture.write_text("// test fixture\n" * 750)
-        fixture_package_source.write_text("// fixture package\n" * 751)
+        fixture.write_text("".join(f"fn test_{index}() {{}}\n" for index in range(750)))
+        fixture_package_source.write_text(
+            "".join(f"fn package_{index}() {{}}\n" for index in range(751))
+        )
         result, calls = self.run_check(**environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("fixture-package/src/lib.rs", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
-        fixture_package_source.write_text("// fixture package\n" * 750)
+        fixture_package_source.write_text(
+            "".join(f"fn package_{index}() {{}}\n" for index in range(750))
+        )
         handwritten_dependency_path = handwritten / "dependencies/handwritten.rs"
-        handwritten_dependency_path.write_text("// handwritten dependency path\n" * 751)
+        handwritten_dependency_path.write_text(
+            "".join(f"fn dependency_{index}() {{}}\n" for index in range(751))
+        )
         result, calls = self.run_check(**environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dependencies/handwritten.rs", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
-        handwritten_dependency_path.write_text("// handwritten dependency path\n" * 750)
+        handwritten_dependency_path.write_text(
+            "".join(f"fn dependency_{index}() {{}}\n" for index in range(750))
+        )
         outside = self.root / "outside.rs"
         outside.write_text("// external target\n")
         external_link = handwritten / "src/outside.rs"
@@ -436,13 +462,15 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
     def test_git_source_discovery_respects_ignored_and_tracked_files(self):
         (self.project / ".gitignore").write_text(".agent/work/\ntracked.rs\n")
         tracked = self.project / "tracked.rs"
-        tracked.write_text("// tracked source\n" * 750)
+        tracked.write_text("".join(f"fn tracked_{index}() {{}}\n" for index in range(750)))
         archive = self.project / ".agent/work/archive.rs"
         archive.parent.mkdir(parents=True)
-        archive.write_text("// ignored archive\n" * 751)
+        archive.write_text("".join(f"fn archive_{index}() {{}}\n" for index in range(751)))
         target_directory = self.project / "custom cargo output"
         target_directory.mkdir()
-        (target_directory / "generated.rs").write_text("// build output\n" * 751)
+        (target_directory / "generated.rs").write_text(
+            "".join(f"fn output_{index}() {{}}\n" for index in range(751))
+        )
         subprocess.run(["git", "init", "-q", str(self.project)], check=True)
         readme = self.root / "README.md"
         readme.write_text("External documentation, not Rust source.\n")
@@ -465,12 +493,88 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
 
-        tracked.write_text("// tracked source\n" * 751)
+        tracked.write_text("".join(f"fn tracked_{index}() {{}}\n" for index in range(751)))
         result, calls = self.run_check(**environment)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("tracked.rs", result.stderr)
         self.assertIn("(751 lines)", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+    def test_code_line_count_ignores_comments_but_lexes_rust_strings(self):
+        fixture = self.project / "src/lib.rs"
+        fixture.parent.mkdir()
+        source = ["//! café\n", "/* outer\n", " /* nested */\n", "*/\n", "\n"]
+        source.extend(f"fn item_{index}() {{}} // trailing comment\n" for index in range(738))
+        source.append("/* leading */ fn inline() {} /* middle */ fn after() {}\n")
+        source.append(
+            "fn markers<'a>(value: &'a str) { let _: &'static str = \"// /* */\"; "
+            'let _ = "escaped \\" // /* */"; '
+            'let _ = b"// /* */"; let _ = br##"// /* */"##; '
+            "let _ = b'/'; let _ = '/'; let _ = value; } /* inline */\n"
+        )
+        source.extend(
+            [
+                'const RAW: &str = r###"\n',
+                "\n",
+                "   \n",
+                "// raw string content counts as code /* here */\n",
+                '"###;\n',
+                'const ZERO_HASH_RAW: &str = r"// /*";\n',
+                'const NORMAL: &str = "first\n',
+                "   \n",
+                "// normal string content counts as code\n",
+                '";\n',
+                'const ESCAPED: &str = "continued' + "\\" + "\n",
+                '";\n',
+                "// excluded after escaped newline\n",
+                "const VALUE: u8 = 1;\n",
+                "// trailing Unicode comment: café\n",
+                "\n",
+            ]
+        )
+        fixture.write_text("".join(source))
+        metadata = {
+            "workspace_members": ["fixture"],
+            "target_directory": str(self.root / "custom target output"),
+            "packages": [
+                {
+                    "id": "fixture",
+                    "name": "fixture",
+                    "manifest_path": str(self.project / "Cargo.toml"),
+                }
+            ],
+        }
+        result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
+
+        fixture.write_text(fixture.read_text() + "fn over_limit() {}")
+        result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("(751 lines)", result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
+    def test_comments_and_blank_lines_do_not_count_toward_limit(self):
+        fixture = self.project / "src/lib.rs"
+        fixture.parent.mkdir()
+        fixture.write_text(
+            "".join(f"fn item_{index}() {{}}\n" for index in range(750))
+            + ("// comment café\n\n/// docs\n//! inner docs\n" * 500)
+        )
+        metadata = {
+            "workspace_members": ["fixture"],
+            "target_directory": str(self.root / "custom target output"),
+            "packages": [
+                {
+                    "id": "fixture",
+                    "name": "fixture",
+                    "manifest_path": str(self.project / "Cargo.toml"),
+                }
+            ],
+        }
+        result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
 
     def test_every_check_can_run_independently(self):
         for check, expected in [

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce the shared physical-line limit for handwritten workspace Rust files."""
+"""Enforce the shared code-line limit for handwritten workspace Rust files."""
 
 import json
 import os
@@ -8,6 +8,118 @@ import sys
 from pathlib import Path
 
 MAX_LINES = 750
+
+
+def rust_code_lines(source):
+    """Count nonblank Rust lines outside comments, keeping multiline strings."""
+    count = 0
+    line_has_code = False
+    index = 0
+    block_depth = 0
+    string_end = None
+    raw_end = None
+    escaped = False
+
+    while index < len(source):
+        character = source[index]
+        following = source[index : index + 2]
+
+        if character == "\n":
+            count += line_has_code
+            line_has_code = False
+            if string_end is not None and escaped:
+                escaped = False
+            index += 1
+            continue
+
+        if string_end is not None or raw_end is not None:
+            if raw_end is not None and source.startswith(raw_end, index):
+                line_has_code = True
+                index += len(raw_end)
+                raw_end = None
+                continue
+            if string_end == '"' and escaped:
+                escaped = False
+            elif string_end == '"' and character == "\\":
+                escaped = True
+            elif string_end is not None and source.startswith(string_end, index):
+                line_has_code = True
+                index += len(string_end)
+                string_end = None
+                continue
+            if not character.isspace():
+                line_has_code = True
+            index += 1
+            continue
+
+        if block_depth:
+            if following == "/*":
+                block_depth += 1
+                index += 2
+            elif following == "*/":
+                block_depth -= 1
+                index += 2
+            else:
+                index += 1
+            continue
+
+        if following == "//":
+            newline = source.find("\n", index)
+            index = len(source) if newline < 0 else newline
+            continue
+        if following == "/*":
+            block_depth = 1
+            index += 2
+            continue
+
+        raw_prefix = next(
+            (prefix for prefix in ("br", "cr", "r") if source.startswith(prefix, index)),
+            None,
+        )
+        if raw_prefix is not None:
+            quote = index + len(raw_prefix)
+            while quote < len(source) and source[quote] == "#":
+                quote += 1
+            if quote < len(source) and source[quote] == '"':
+                line_has_code = True
+                raw_end = '"' + "#" * (quote - index - len(raw_prefix))
+                index = quote + 1
+                continue
+
+        if character == '"':
+            line_has_code = True
+            string_end = '"'
+            index += 1
+            continue
+
+        if character == "'":
+            line_has_code = True
+            closing = index + 1
+            if closing < len(source) and source[closing] == "\\":
+                closing += 1
+                if closing < len(source) and source[closing] == "u":
+                    closing += 1
+                    if closing < len(source) and source[closing] == "{":
+                        brace = source.find("}", closing + 1)
+                        closing = len(source) if brace < 0 else brace + 1
+                elif closing < len(source) and source[closing] == "x":
+                    closing += 3
+                else:
+                    closing += 1
+            else:
+                closing += 1
+            if closing < len(source) and source[closing] == "'":
+                index = closing + 1
+            else:
+                index += 1
+            continue
+
+        if not character.isspace():
+            line_has_code = True
+        index += 1
+
+    return count + line_has_code
+
 
 try:
     metadata = json.load(sys.stdin)
@@ -198,13 +310,11 @@ for path in sorted(candidates):
             f"Cannot read Rust source for file-length check: {path}: {error}"
         ) from None
 
-    lines = source.count("\n") + int(bool(source) and not source.endswith("\n"))
+    lines = rust_code_lines(source)
     if lines > MAX_LINES:
         violations.append((path, lines))
 
 if violations:
     for path, lines in violations:
-        print(
-            f"Rust file exceeds {MAX_LINES} physical lines: {path} ({lines} lines)", file=sys.stderr
-        )
+        print(f"Rust file exceeds {MAX_LINES} code lines: {path} ({lines} lines)", file=sys.stderr)
     raise SystemExit(1)

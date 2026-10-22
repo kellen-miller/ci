@@ -72,7 +72,7 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | Correctness, performance, and idiomatic code | Compiler plus Clippy's default `all` group |
 | Handle results, including blank assignments | `unused_must_use`, `let_underscore_must_use`, `unused_result_ok` |
 | Readable control flow | `too_many_lines=250`, `cognitive_complexity=20`, nesting threshold 5 |
-| File size | When `clippy` is selected, tracked and nonignored untracked `.rs` files under handwritten workspace packages stay at or below 750 physical lines, including comments, blanks, build scripts, tests, and fixtures |
+| File size | When `clippy` is selected, tracked and nonignored untracked `.rs` files under handwritten workspace packages stay at or below 750 nonblank, noncomment code lines; multiline string contents, build scripts, tests, and fixtures count |
 | Exhaustive matches | Compiler requires exhaustive matches; wildcard arms intentionally cover other variants |
 | Restrict APIs | Configurable disallowed methods, types, and macros; no dependency-graph or module-boundary enforcement |
 | Unfinished code | `todo!()` and `unimplemented!()` checks; ordinary TODO comments need a separate check |
