@@ -95,9 +95,7 @@ pub fn run() -> Result<()> {
         ensure!(seen.insert(*check), "checks must not contain duplicates");
     }
 
-    let directory = PathBuf::from(directory)
-        .canonicalize()
-        .context("resolve Rust working-directory")?;
+    let directory = dunce::canonicalize(directory).context("resolve Rust working-directory")?;
     ensure!(
         directory.is_dir(),
         "Rust working-directory must be a directory"
@@ -105,15 +103,14 @@ pub fn run() -> Result<()> {
     let mut policy_directory = PathBuf::new();
     let mut lint_args = Vec::new();
     if seen.contains("fmt") || seen.contains("clippy") {
-        policy_directory = if policy.is_empty() {
+        policy_directory = dunce::canonicalize(if policy.is_empty() {
             env::var_os("CI_ROOT")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
                 .join("config/rust")
         } else {
             directory.join(policy)
-        }
-        .canonicalize()
+        })
         .context("resolve Rust policy-directory")?;
         if seen.contains("fmt") {
             ensure!(

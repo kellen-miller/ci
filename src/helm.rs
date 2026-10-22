@@ -25,8 +25,7 @@ pub fn run(operation: &str) -> Result<()> {
 }
 
 fn lint() -> Result<()> {
-    let charts_root =
-        PathBuf::from(env::var("CHARTS_ROOT").context("Set CHARTS_ROOT")?).canonicalize()?;
+    let charts_root = dunce::canonicalize(env::var("CHARTS_ROOT").context("Set CHARTS_ROOT")?)?;
     let rendered = if let Some(directory) = env::var_os("RENDERED_DIR") {
         PathBuf::from(directory)
     } else {

@@ -134,7 +134,7 @@ fn invoke_engine(
 /// # Errors
 /// Returns validation, file, network, or child-process failures to the caller.
 pub fn run() -> Result<()> {
-    let cwd = fs::canonicalize(env::var("WORKING_DIRECTORY").unwrap_or_else(|_| ".".into()))?;
+    let cwd = dunce::canonicalize(env::var("WORKING_DIRECTORY").unwrap_or_else(|_| ".".into()))?;
     let dry_run = env::var("DRY_RUN").is_ok_and(|value| value == "true");
     let first_version = env::var("FIRST_RELEASE_VERSION").unwrap_or_default();
     if !first_version.is_empty() {
@@ -143,7 +143,8 @@ pub fn run() -> Result<()> {
     }
 
     let mut scope = env::var("SEMANTIC_RELEASE_COMMIT_PATHS").unwrap_or_default();
-    let workspace = fs::canonicalize(env::var("GITHUB_WORKSPACE").unwrap_or_else(|_| ".".into()))?;
+    let workspace =
+        dunce::canonicalize(env::var("GITHUB_WORKSPACE").unwrap_or_else(|_| ".".into()))?;
     if scope.trim().is_empty() && cwd != workspace {
         scope = command::capture(
             Command::new("git")

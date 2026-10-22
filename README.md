@@ -397,6 +397,7 @@ against the action checkout and rejects a stale runtime before running operation
 Linux binaries use musl for static linking. The job caches
 archives under `runner.temp` and verifies them on every invocation. No Cargo or
 Python interpreter is required for the shared Rust runtime.
+The loader requires `RUNNER_TEMP`; GitHub Actions provides this private job directory.
 
 Repository CI builds the current checkout first and explicitly supplies
 `CI_BINARY`; local development can do the same. This override executes the given

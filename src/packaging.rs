@@ -3,7 +3,6 @@
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
-use std::process::Command;
 
 use anyhow::{Result, ensure};
 use flate2::{Compression, write::GzEncoder};
@@ -43,7 +42,7 @@ pub fn verify_runtime(target: &str, assets: &Path) -> Result<()> {
 
     let root = repository::root();
     command::run(
-        Command::new("bash")
+        command::bash()
             .args([".github/actions/run.sh", "workflow-security", "--root", "."])
             .current_dir(&root)
             .env_remove("CI_BINARY")

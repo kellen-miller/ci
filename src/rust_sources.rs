@@ -17,9 +17,7 @@ const MAX_LINES: usize = 750;
 // Cargo metadata may name a target directory or dependency not created yet.
 fn resolve(path: &Path, strict: bool) -> Result<PathBuf> {
     if strict || path.exists() || path.is_symlink() {
-        return path
-            .canonicalize()
-            .with_context(|| format!("resolve {}", path.display()));
+        return dunce::canonicalize(path).with_context(|| format!("resolve {}", path.display()));
     }
 
     let absolute = if path.is_absolute() {
@@ -51,7 +49,7 @@ fn resolve(path: &Path, strict: bool) -> Result<PathBuf> {
         existing = existing.parent().context("missing path has no parent")?;
     }
 
-    let mut resolved = existing.canonicalize()?;
+    let mut resolved = dunce::canonicalize(existing)?;
     for component in missing.into_iter().rev() {
         resolved.push(component);
     }
@@ -229,12 +227,11 @@ fn discover_sources(
         .context("locate Git checkout for Rust source discovery")?;
     let mut candidates = BTreeSet::new();
     if git.status.success() {
-        let checkout = PathBuf::from(
+        let checkout = dunce::canonicalize(
             String::from_utf8(git.stdout)
                 .context("Git checkout path is not UTF-8")?
                 .trim_end_matches('\n'),
-        )
-        .canonicalize()?;
+        )?;
         for (root, generated) in members {
             ensure!(
                 *generated || root.starts_with(&checkout),

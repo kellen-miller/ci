@@ -27,12 +27,10 @@ pub fn run(operation: &str) -> Result<()> {
 }
 
 fn clean_generated_output() -> Result<()> {
-    let workspace = PathBuf::from(env::var("GITHUB_WORKSPACE")?)
-        .canonicalize()
-        .context("resolve GITHUB_WORKSPACE")?;
+    let workspace =
+        dunce::canonicalize(env::var("GITHUB_WORKSPACE")?).context("resolve GITHUB_WORKSPACE")?;
     let requested = workspace.join(env::var("WORKING_DIRECTORY")?);
-    let target = requested
-        .canonicalize()
+    let target = dunce::canonicalize(&requested)
         .with_context(|| format!("resolve working directory {}", requested.display()))?;
     ensure!(
         target != workspace && target.starts_with(&workspace),
@@ -109,7 +107,7 @@ fn isolate_credentials() -> Result<()> {
     }
 
     set_private_permissions(&destination)?;
-    let destination = destination.canonicalize()?;
+    let destination = dunce::canonicalize(destination)?;
     let _persistent_directory = directory.keep();
     let path_value = destination.to_string_lossy();
     let env_path = PathBuf::from(env::var("GITHUB_ENV")?);
@@ -211,7 +209,7 @@ fn resolve_go_config() -> Result<PathBuf> {
         "config file does not exist: {}",
         path.display()
     );
-    let path = path.canonicalize().context("resolve lint config path")?;
+    let path = dunce::canonicalize(path).context("resolve lint config path")?;
     ensure!(
         !path.to_string_lossy().contains(['\n', '\r']),
         "config must be a single-line path"

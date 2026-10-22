@@ -16,6 +16,18 @@ impl fmt::Display for Failure {
 
 impl std::error::Error for Failure {}
 
+/// Use the caller's Bash installation, preserving arguments through MSYS.
+pub fn bash() -> Command {
+    let mut command = Command::new("bash");
+    if cfg!(windows) {
+        // Explicit PATH takes precedence over System32's WSL launcher.
+        command.env("PATH", std::env::var_os("PATH").unwrap_or_default());
+        command.env("MSYS2_ARG_CONV_EXCL", "*");
+    }
+
+    command
+}
+
 /// Construct a command for an ecosystem tool that may be a script shim.
 /// Windows CreateProcess cannot execute the extensionless npm/Gradle scripts
 /// used by Bash actions. The constant adapter keeps every argument literal.
@@ -36,7 +48,7 @@ pub fn script(program: impl AsRef<std::ffi::OsStr>) -> Command {
                 })
                 .collect::<Vec<_>>(),
         );
-        let mut command = Command::new("bash");
+        let mut command = bash();
         command
             .args(["-c", "exec \"$@\"", "ci-script"])
             .arg(program);

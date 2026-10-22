@@ -3,7 +3,9 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ "${RUNNER_OS:-}" == Windows || "${OSTYPE:-}" == msys* ]]; then
-  root="$(cygpath -m "$root")"
+  root="$(cd -- "$root" && pwd -W)"
+  CI_BINARY="${CI_BINARY:-}"
+  CI_BINARY="${CI_BINARY//\\//}"
 fi
 export CI_ROOT="$root"
 if [[ -n "${CI_BINARY:-}" ]]; then
@@ -21,7 +23,7 @@ case "${RUNNER_OS:-$(uname -s)}/${RUNNER_ARCH:-$(uname -m)}" in
   Windows/X64|MINGW*/x86_64) target=x86_64-pc-windows-msvc ;;
   *) echo 'Unsupported CI runtime platform' >&2; exit 1 ;;
 esac
-directory="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/personal-ci/$version/$target"
+directory="${RUNNER_TEMP:?Set RUNNER_TEMP to a private directory}/personal-ci/$version/$target"
 [[ "$target" != *windows* ]] || directory="${directory//\\//}"
 mkdir -p "$directory"
 archive="ci-$target.tar.gz"
@@ -40,6 +42,6 @@ fi
 [[ "$actual" == "$expected" ]] || { rm -f "$directory/$archive" "$directory/$archive.sha256"; echo 'CI runtime checksum mismatch' >&2; exit 1; }
 executable=ci
 [[ "$target" != *windows* ]] || executable=ci.exe
-tar -xzf "$directory/$archive" -C "$directory" "$executable"
+(cd -- "$directory" && tar -xzf "$archive" "$executable")
 chmod +x "$directory/$executable"
 exec "$directory/$executable" "$@"

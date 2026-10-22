@@ -413,10 +413,11 @@ fn executable_name(name: &str) -> String {
 }
 
 fn locate_program(name: &str) -> PathBuf {
-    let result = Command::new(name).arg("--version").output().unwrap();
-    assert!(result.status.success());
-    env::split_paths(&env::var_os("PATH").unwrap())
+    let program = env::split_paths(&env::var_os("PATH").unwrap())
         .map(|directory| directory.join(executable_name(name)))
         .find(|candidate| candidate.is_file())
-        .unwrap()
+        .unwrap();
+    let result = Command::new(&program).arg("--version").output().unwrap();
+    assert!(result.status.success());
+    program
 }
