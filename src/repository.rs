@@ -18,6 +18,18 @@ pub fn root() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
 }
 
+/// Reject a released executable that does not implement the selected action sources.
+///
+/// # Errors
+/// Returns an error when source files are missing or differ from the build inputs.
+pub fn verify_runtime_source() -> Result<()> {
+    ensure!(
+        crate::source_identity::digest(&root())? == env!("CI_SOURCE_DIGEST"),
+        "Runtime binary does not match action sources; publish a matching runtime version before upgrading action pins"
+    );
+    Ok(())
+}
+
 /// Run the same selected validation phases locally and on hosted CI.
 ///
 /// # Errors
@@ -35,6 +47,7 @@ pub fn check() -> Result<()> {
             .as_ref()
             .is_none_or(|groups| groups.get(name).copied().unwrap_or(true))
     };
+
     let run = |name: &str, executable: &str, args: &[&str]| -> Result<()> {
         if enabled(name) {
             println!("Running {executable} {}", args.join(" "));
@@ -45,6 +58,7 @@ pub fn check() -> Result<()> {
 
         Ok(())
     };
+
     run("yaml", "yamllint", &["--strict", "."])?;
     run("workflows", "actionlint", &[])?;
     run(
@@ -150,6 +164,7 @@ pub fn pin_actions(commit: &str) -> Result<()> {
         "Cargo.lock",
         "config",
         "runtime-version",
+        "build.rs",
     ];
     let dirty = command::capture_bytes(
         Command::new("git")
@@ -170,6 +185,7 @@ pub fn pin_actions(commit: &str) -> Result<()> {
         "Commit action, Rust and policy changes before pinning workflows"
     );
     for required in [
+        "build.rs",
         "Cargo.toml",
         "Cargo.lock",
         "src/main.rs",

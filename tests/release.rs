@@ -61,6 +61,7 @@ impl Repository {
             root,
             remote,
         };
+
         for (key, value) in [
             ("user.name", "Release Test"),
             ("user.email", "release@example.com"),

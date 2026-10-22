@@ -40,6 +40,7 @@ fn code_duplication() -> Result<()> {
     {
         args.extend(["--threshold".to_owned(), value]);
     }
+
     if let Ok(reporters) = env::var("CPD_REPORTERS")
         && !reporters.is_empty()
     {
@@ -49,6 +50,7 @@ fn code_duplication() -> Result<()> {
                 .args(["--reporters", &reporters]),
         );
     }
+
     match command::run(Command::new("cpd").args(&args)) {
         Ok(()) => Ok(()),
         Err(error) => {
@@ -68,6 +70,7 @@ fn code_duplication() -> Result<()> {
             ])) {
                 eprintln!("CPD AI report failed: {report_error}");
             }
+
             Err(command::Failure(failure).into())
         }
     }
@@ -81,12 +84,15 @@ fn docker_cache() -> Result<()> {
             let head = env::var("GITHUB_HEAD_REF").unwrap_or_else(|_| ref_name.clone());
             format!("pr/{}", sanitize(&head))
         }
+
         "release" => format!("release/{ref_name}"),
         _ if env::var("GITHUB_REF_TYPE").unwrap_or_default() == "tag" => {
             format!("release/{ref_name}")
         }
+
         _ => format!("branch/{ref_name}"),
     };
+
     let repo = env::var("REPO")?;
     let scope = sanitize(&format!("{repo}/{trust_scope}"));
     github_output::append(
@@ -133,6 +139,7 @@ fn playwright_version() -> Result<()> {
             .context("Playwright version output is missing a version")?
             .to_owned();
     }
+
     let browsers = env::var("BROWSERS")
         .unwrap_or_default()
         .split_whitespace()
@@ -143,6 +150,7 @@ fn playwright_version() -> Result<()> {
     } else {
         &browsers
     };
+
     let runner_os = env::var("RUNNER_OS")?;
     let runner_arch = env::var("RUNNER_ARCH")?;
     let cache_key = format!("playwright-{runner_os}-{runner_arch}-{version}-{browsers}");
@@ -162,8 +170,10 @@ fn playwright_version() -> Result<()> {
                 .to_string_lossy()
                 .into_owned()
         }
+
         _ => bail!("::error::Unsupported Playwright runner OS: {runner_os}"),
     };
+
     github_output::append("version", &version)?;
     github_output::append("cache-key", &cache_key)?;
     github_output::append("cache-path", &cache_path)?;
@@ -196,15 +206,18 @@ fn go_test() -> Result<()> {
     if race {
         test.arg("-race");
     }
+
     command::run(test.args(&packages))?;
     if env::var("VET").unwrap_or_default() == "true" {
         command::run(Command::new("go").args(["vet", "./..."]))?;
     }
+
     if let Ok(target) = env::var("BUILD_TARGET")
         && !target.is_empty()
     {
         command::run(Command::new("go").args(["build", &target]))?;
     }
+
     Ok(())
 }
 

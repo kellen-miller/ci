@@ -12,6 +12,66 @@ use tempfile::TempDir;
 
 use personal_ci::packaging;
 
+#[test]
+fn released_runtime_checks_its_action_source_identity_before_side_effects() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let temporary = TempDir::new().unwrap();
+    let output = temporary.path().join("outputs");
+    let valid = Command::new(env!("CARGO_BIN_EXE_ci"))
+        .arg("changed-paths")
+        .env("CI_ROOT", root)
+        .env("CI_VERIFY_SOURCE", "true")
+        .env("FILTERS", r#"{"all":["**"]}"#)
+        .env("EVENT_NAME", "workflow_dispatch")
+        .env("GITHUB_OUTPUT", &output)
+        .output()
+        .unwrap();
+    assert!(
+        valid.status.success(),
+        "{}",
+        String::from_utf8_lossy(&valid.stderr)
+    );
+    assert_eq!(
+        fs::read_to_string(&output).unwrap(),
+        "changes={\"all\":true}\n"
+    );
+
+    let stale = temporary.path().join("stale");
+    fs::create_dir_all(stale.join("src")).unwrap();
+    for file in ["Cargo.toml", "Cargo.lock", "build.rs"] {
+        fs::copy(root.join(file), stale.join(file)).unwrap();
+    }
+
+    for entry in walkdir::WalkDir::new(root.join("src")) {
+        let entry = entry.unwrap();
+        let destination = stale.join(entry.path().strip_prefix(root).unwrap());
+        if entry.file_type().is_dir() {
+            fs::create_dir_all(destination).unwrap();
+        } else {
+            fs::copy(entry.path(), destination).unwrap();
+        }
+    }
+
+    fs::write(
+        stale.join("src/new_operation.rs"),
+        "// changed action implementation\n",
+    )
+    .unwrap();
+    fs::remove_file(&output).unwrap();
+    let rejected = Command::new(env!("CARGO_BIN_EXE_ci"))
+        .arg("changed-paths")
+        .env("CI_ROOT", stale)
+        .env("CI_VERIFY_SOURCE", "true")
+        .env("FILTERS", r#"{"all":["**"]}"#)
+        .env("EVENT_NAME", "workflow_dispatch")
+        .env("GITHUB_OUTPUT", &output)
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("does not match action sources"));
+    assert!(!output.exists());
+}
+
 struct RuntimeFixture {
     runner_temp: TempDir,
     assets: TempDir,
@@ -113,6 +173,7 @@ impl RuntimeFixture {
         if let Some(binary) = binary {
             command.env("CI_BINARY", binary);
         }
+
         let path = if include_system_path {
             let mut directories =
                 env::split_paths(&env::var_os("PATH").unwrap()).collect::<Vec<_>>();
@@ -121,6 +182,7 @@ impl RuntimeFixture {
         } else {
             env::join_paths([self.no_curl_tools.path()]).unwrap()
         };
+
         command.env("PATH", path);
         command.output().unwrap()
     }

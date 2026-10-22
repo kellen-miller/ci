@@ -186,11 +186,13 @@ pub fn run() -> Result<()> {
                         now.signed_duration_since(DateTime::parse_from_rfc3339(date)?)
                             >= warning_window
                     }
+
                     None => false,
                 }
             } else {
                 false
             };
+
             println!(
                 "{} {repo} {name} (dry-run={dry_run})",
                 if mature { "DELETE" } else { "WARN" }

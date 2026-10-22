@@ -54,6 +54,7 @@ pub(crate) fn repository(value: &str) -> Result<()> {
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
     };
+
     let parts: Vec<_> = value.split('/').collect();
     ensure!(
         parts.len() == 2 && parts.iter().all(|part| valid_part(part)),
@@ -110,6 +111,7 @@ pub(crate) fn api(
     } else {
         command::capture_bytes(&mut request)?
     };
+
     if output.iter().all(u8::is_ascii_whitespace) {
         return Ok(Value::Null);
     }
@@ -159,6 +161,7 @@ fn select_runner() -> Result<()> {
             println!("::warning::Runner availability could not be confirmed; use hosted fallback.");
             break;
         };
+
         let url = format!(
             "{}/repos/{}/actions/runners?per_page=100&page={page}",
             base.trim_end_matches('/'),
@@ -179,6 +182,7 @@ fn select_runner() -> Result<()> {
                 );
                 break;
             }
+
             Err(_) => {
                 println!(
                     "::warning::Runner availability could not be confirmed; use hosted fallback."
@@ -186,6 +190,7 @@ fn select_runner() -> Result<()> {
                 break;
             }
         };
+
         let runners: Runners = match response.json() {
             Ok(runners) => runners,
             Err(_) => {
@@ -195,6 +200,7 @@ fn select_runner() -> Result<()> {
                 break;
             }
         };
+
         if runners.runners.iter().any(|runner| {
             runner.status == "online"
                 && !runner.busy
@@ -235,8 +241,10 @@ fn resolve_release() -> Result<()> {
                     response.status().as_u16() == 429
                         || matches!(response.status().as_u16(), 500 | 502 | 503 | 504)
                 }
+
                 Err(error) => error.is_timeout(),
             };
+
             if retry && attempt < 3 {
                 std::thread::sleep(Duration::from_secs(1 << attempt));
                 continue;
@@ -257,6 +265,7 @@ fn resolve_release() -> Result<()> {
     } else {
         version
     };
+
     ensure!(
         !tag.is_empty() && !tag.contains(['\n', '\r']),
         "Release tag must be a nonempty single line"
@@ -286,6 +295,7 @@ fn terraform_plan_comment() -> Result<()> {
     } else {
         plan
     };
+
     let marker = format!(
         "<!-- terraform-plan:{} -->",
         hex::encode(Sha256::digest(format!("{directory}:{environment}")))

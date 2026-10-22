@@ -23,7 +23,7 @@ impl std::error::Error for Failure {}
 pub fn run(command: &mut Command) -> Result<()> {
     let status = command
         .status()
-        .with_context(|| format!("execute {command:?}"))?;
+        .with_context(|| format!("execute {}", command.get_program().to_string_lossy()))?;
     if !status.success() {
         return Err(Failure(status.code().unwrap_or(1)).into());
     }
@@ -38,7 +38,7 @@ pub fn run(command: &mut Command) -> Result<()> {
 pub fn capture_bytes(command: &mut Command) -> Result<Vec<u8>> {
     let output = command
         .output()
-        .with_context(|| format!("execute {command:?}"))?;
+        .with_context(|| format!("execute {}", command.get_program().to_string_lossy()))?;
     if !output.status.success() {
         eprint!("{}", String::from_utf8_lossy(&output.stderr));
         return Err(Failure(output.status.code().unwrap_or(1)).into());
@@ -53,4 +53,28 @@ pub fn capture_bytes(command: &mut Command) -> Result<Vec<u8>> {
 /// Returns validation, file, network, or child-process failures to the caller.
 pub fn capture(command: &mut Command) -> Result<String> {
     String::from_utf8(capture_bytes(command)?).context("child output is not UTF-8")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{capture_bytes, run};
+    use std::process::Command;
+
+    #[test]
+    fn spawn_failures_do_not_disclose_child_environment() {
+        for capture in [false, true] {
+            let mut command = Command::new("/missing/ci-fixture-executable");
+            command.env("BUILD_SECRET", "secret-fixture-value");
+            let result = if capture {
+                capture_bytes(&mut command).map(|_| ())
+            } else {
+                run(&mut command)
+            };
+
+            let message = format!("{:#}", result.unwrap_err());
+            assert!(message.contains("ci-fixture-executable"));
+            assert!(!message.contains("secret-fixture-value"));
+            assert!(!message.contains("BUILD_SECRET"));
+        }
+    }
 }

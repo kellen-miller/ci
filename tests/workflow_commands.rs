@@ -163,6 +163,7 @@ impl Fixture {
         for (path, contents) in [
             ("Cargo.toml", "[package]\nname='fixture'\nversion='0.1.0'\n"),
             ("Cargo.lock", "version = 4\n"),
+            ("build.rs", "fn main() {}\n"),
             ("src/main.rs", "fn main() {}\n"),
             ("config/rust/lints.toml", "[rust]\n"),
             ("runtime-version", "1\n"),
@@ -283,7 +284,7 @@ fn changed_paths_rejects_invalid_filters_for_every_event() {
             json!({"rust":"src/**"}),
             json!({"rust":[1]}),
             json!({"":["src/**"]}),
-            json!({"rust":["["]}),
+            json!({"rust":[null]}),
         ] {
             let fixture = Fixture::new();
             let output = fixture
@@ -557,6 +558,7 @@ fn renovate_changes_gates_literal_paths_deletions_and_caller_workflows() {
 #[test]
 fn pin_actions_rejects_dirty_or_untracked_runtime_inputs_before_writing() {
     for path in [
+        "build.rs",
         "src/main.rs",
         "src/new.rs",
         "config/rust/lints.toml",
@@ -672,6 +674,7 @@ fn manifest_rejects_invalid_digest_artifacts_before_child_execution() {
             "directory" => {
                 fs::create_dir(fixture.root().join("digests").join("a".repeat(64))).unwrap()
             }
+
             "symlink" => {
                 fixture.write("outside", "");
                 std::os::unix::fs::symlink(
@@ -680,6 +683,7 @@ fn manifest_rejects_invalid_digest_artifacts_before_child_execution() {
                 )
                 .unwrap();
             }
+
             _ => {}
         }
 

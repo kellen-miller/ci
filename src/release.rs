@@ -44,6 +44,7 @@ pub fn scope_paths(value: &str) -> Result<Vec<String>> {
         } else {
             normalized
         };
+
         ensure!(
             !normalized.starts_with('/')
                 && !normalized.split('/').any(|part| part == "..")
@@ -206,6 +207,7 @@ pub fn run() -> Result<()> {
     } else {
         vec![json!([directory.join("path-scope/bridge.mjs"), {"analyzer":analyzer,"notes":notes}])]
     };
+
     plugins.push(json!(["@semantic-release/github",{"successComment":false,"failComment":false,"releasedLabels":false}]));
     let branches = env::var("SEMANTIC_RELEASE_BRANCHES")
         .ok()
@@ -229,6 +231,7 @@ pub fn run() -> Result<()> {
     } else {
         "none"
     };
+
     if !first_version.is_empty() && result.is_object() {
         if result["lastRelease"]["version"]
             .as_str()
@@ -280,6 +283,7 @@ pub fn run() -> Result<()> {
         let version = semver::Version::parse(version)?;
         format!("{}.{}", version.major, version.minor)
     };
+
     for (key, value) in [
         (
             "release_published",

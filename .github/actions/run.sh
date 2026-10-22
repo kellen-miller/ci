@@ -6,6 +6,7 @@ export CI_ROOT="$root"
 if [[ -n "${CI_BINARY:-}" ]]; then
   exec "$CI_BINARY" "$@"
 fi
+export CI_VERIFY_SOURCE=true
 
 version="$(tr -d '\r\n' < "$root/runtime-version")"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid runtime version' >&2; exit 1; }

@@ -48,6 +48,7 @@ pub fn run(operation: &str) -> Result<()> {
 
             command::run(&mut build)?;
         }
+
         "playwright-install" | "playwright-deps" => {
             let browsers = env::var("BROWSERS").unwrap_or_default();
             let mut install = Command::new("./node_modules/.bin/playwright");
@@ -59,6 +60,7 @@ pub fn run(operation: &str) -> Result<()> {
 
             command::run(install.args(browsers.split_whitespace()))?;
         }
+
         "node-checks" => {
             let manager = env::var("PM")?;
             let scripts = ["FORMAT_SCRIPT", "CHECK_SCRIPT", "LINT_SCRIPT"]
@@ -71,6 +73,7 @@ pub fn run(operation: &str) -> Result<()> {
                 command::run(Command::new(&manager).args(["run", script]))?;
             }
         }
+
         "renovate-changes" => {
             let mut validate = true;
             if env::var("EVENT_NAME")? == "pull_request" {
@@ -90,6 +93,7 @@ pub fn run(operation: &str) -> Result<()> {
 
             github_output::append("validate", if validate { "true" } else { "false" })?;
         }
+
         "renovate-validate" => {
             let mut cmd = Command::new("npx");
             cmd.args([
@@ -105,6 +109,7 @@ pub fn run(operation: &str) -> Result<()> {
 
             command::run(cmd.arg(env::var("CONFIG_FILE")?))?;
         }
+
         "platform-matrix" => {
             let platforms = env::var("PLATFORMS")?;
             let requested: Vec<&str> = if platforms.trim().is_empty() {
@@ -116,6 +121,7 @@ pub fn run(operation: &str) -> Result<()> {
                     .filter(|platform| !platform.is_empty())
                     .collect()
             };
+
             let mut include: Vec<Platform> = Vec::new();
             for platform in requested {
                 if include.iter().any(|item| item.platform == platform) {
@@ -142,6 +148,7 @@ pub fn run(operation: &str) -> Result<()> {
             ensure!(!include.is_empty(), "no build platforms selected");
             github_output::append("matrix", &serde_json::to_string(&Matrix { include })?)?;
         }
+
         "digest-artifact" => {
             let digest = env::var("DIGEST")?;
             ensure!(valid_digest(&digest), "Invalid image digest: {digest}");
@@ -149,6 +156,7 @@ pub fn run(operation: &str) -> Result<()> {
             fs::create_dir_all(&directory)?;
             fs::write(directory.join(&digest[7..]), [])?;
         }
+
         "docker-manifest" => {
             let image = env::var("IMAGE")?;
             let mut files =
@@ -190,6 +198,7 @@ pub fn run(operation: &str) -> Result<()> {
                 &format!("sha256:{}", hex::encode(Sha256::digest(&manifest))),
             )?;
         }
+
         "helm-package" => {
             let chart = env::var("CHART_PATH")?;
             let version = env::var("CHART_VERSION")?;
@@ -210,6 +219,7 @@ pub fn run(operation: &str) -> Result<()> {
                     .arg(destination),
             )?;
         }
+
         "helm-push" => {
             let registry = format!(
                 "oci://{}-docker.pkg.dev/{}/{}",
@@ -239,6 +249,7 @@ pub fn run(operation: &str) -> Result<()> {
 
             ensure!(count > 0, "No packaged charts found");
         }
+
         "provenance" => {
             let repository = env::var("REPOSITORY")?;
             let reference = env::var("REF")?;
@@ -254,6 +265,7 @@ pub fn run(operation: &str) -> Result<()> {
                 format!("{}\n", serde_json::to_string_pretty(&predicate)?),
             )?;
         }
+
         _ => bail!("Unknown workflow operation: {operation}"),
     }
 

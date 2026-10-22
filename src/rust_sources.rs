@@ -27,12 +27,14 @@ fn resolve(path: &Path, strict: bool) -> Result<PathBuf> {
     } else {
         std::env::current_dir()?.join(path)
     };
+
     let mut normalized = PathBuf::new();
     for component in absolute.components() {
         match component {
             Component::ParentDir => {
                 normalized.pop();
             }
+
             Component::CurDir => {}
             other => normalized.push(other),
         }
@@ -97,12 +99,14 @@ pub(crate) fn check(metadata: &Metadata, directory: &Path) -> Result<()> {
             .iter()
             .any(|root| root != owner && root.starts_with(owner) && path.starts_with(root))
     };
+
     let owner = |path: &Path| {
         members
             .keys()
             .filter(|root| path.starts_with(root))
             .max_by_key(|root| root.components().count())
     };
+
     let candidates = discover_sources(directory, &members, &dependencies, &target)?;
 
     let mut violations = Vec::new();
@@ -110,6 +114,7 @@ pub(crate) fn check(metadata: &Metadata, directory: &Path) -> Result<()> {
         let Some(package_root) = owner(&path) else {
             continue;
         };
+
         if members[package_root] || path.starts_with(&target) || is_dependency(&path, package_root)
         {
             continue;

@@ -28,13 +28,13 @@ jobs:
         with:
           filters: >-
             {
-              "rust": ["Cargo.toml", "Cargo.lock", "src/**", "tests/**", "config/**", ".github/**", "runtime-version"],
-              "yaml": ["**/*.yaml", "**/*.yml", ".yamllint", "src/**", "Cargo.*"],
-              "workflows": [".github/**", ".actionlint*", ".shellcheckrc", "src/**", "Cargo.*"],
-              "shell": [".github/**/*.sh", ".shellcheckrc", "src/**", "Cargo.*"],
-              "go_config": ["config/golangci.yaml", "src/**", "Cargo.*", ".github/workflows/ci.yaml"],
-              "renovate": ["default.json", "renovate.json", "src/**", "Cargo.*", ".github/workflows/ci.yaml"],
-              "release": [".github/actions/release/**", "src/**", "tests/release.rs", "Cargo.*", ".github/workflows/ci.yaml"]
+              "rust": ["Cargo.toml", "Cargo.lock", "build.rs", "src/**", "tests/**", "config/**", ".github/**", "runtime-version"],
+              "yaml": ["**/*.yaml", "**/*.yml", ".yamllint", "src/**", "Cargo.*", "build.rs"],
+              "workflows": [".github/**", ".actionlint*", ".shellcheckrc", "src/**", "Cargo.*", "build.rs"],
+              "shell": [".github/**/*.sh", ".shellcheckrc", "src/**", "Cargo.*", "build.rs"],
+              "go_config": ["config/golangci.yaml", "src/**", "Cargo.*", "build.rs", ".github/workflows/ci.yaml"],
+              "renovate": ["default.json", "renovate.json", "src/**", "Cargo.*", "build.rs", ".github/workflows/ci.yaml"],
+              "release": [".github/actions/release/**", "src/**", "tests/release.rs", "Cargo.*", "build.rs", ".github/workflows/ci.yaml"]
             }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).renovate || fromJSON(steps.changes.outputs.changes).release) }}

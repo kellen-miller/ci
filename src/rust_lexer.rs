@@ -84,6 +84,7 @@ pub fn code_lines(source: &str) -> usize {
             ['r', ..] => 1,
             _ => 0,
         };
+
         if prefix > 0 {
             let mut quote = index + prefix;
             while characters.get(quote) == Some(&'#') {
@@ -133,6 +134,7 @@ fn character_end(characters: &[char], start: usize) -> Option<usize> {
                     + closing
                     + 3;
             }
+
             Some('x') => closing += 3,
             Some(_) => closing += 1,
             None => return None,

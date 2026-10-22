@@ -32,6 +32,7 @@ pub fn package(target: &str, binary: &Path, output: &Path) -> Result<()> {
             "release tag must match Cargo package version"
         );
     }
+
     ensure!(
         binary.is_file(),
         "binary does not exist: {}",

@@ -35,6 +35,7 @@ fn lint() -> Result<()> {
             .tempdir_in(env::var("RUNNER_TEMP")?)?
             .keep()
     };
+
     fs::create_dir_all(&rendered)?;
     let mut charts = Vec::new();
     for entry in walkdir::WalkDir::new(&charts_root)
@@ -59,6 +60,7 @@ fn lint() -> Result<()> {
         {
             continue;
         }
+
         if entry.file_type().is_file() && entry.file_name() == "Chart.yaml" {
             charts.push(
                 entry
@@ -69,6 +71,7 @@ fn lint() -> Result<()> {
             );
         }
     }
+
     charts.sort();
     ensure!(
         !charts.is_empty(),
@@ -80,6 +83,7 @@ fn lint() -> Result<()> {
     if env::var("IGNORE_MISSING_SCHEMAS").unwrap_or_else(|_| "false".to_owned()) == "true" {
         schema_args.push("-ignore-missing-schemas".to_owned());
     }
+
     let schema_locations = env::var("SCHEMA_LOCATIONS")
         .ok()
         .filter(|locations| !locations.is_empty())
@@ -87,11 +91,13 @@ fn lint() -> Result<()> {
     for location in schema_locations.lines().filter(|line| !line.is_empty()) {
         schema_args.extend(["-schema-location".to_owned(), location.to_owned()]);
     }
+
     if let Ok(version) = env::var("KUBERNETES_VERSION")
         && !version.is_empty()
     {
         schema_args.extend(["-kubernetes-version".to_owned(), version]);
     }
+
     if let Ok(cache) = env::var("KUBECONFORM_CACHE")
         && !cache.is_empty()
     {
@@ -119,6 +125,7 @@ fn lint() -> Result<()> {
                     .arg(&chart),
             )?;
         }
+
         let mut values = Vec::new();
         for entry in fs::read_dir(&chart)? {
             let entry = entry?;
@@ -128,6 +135,7 @@ fn lint() -> Result<()> {
                 values.push(entry.path());
             }
         }
+
         values.sort();
         let variants = std::iter::once(None)
             .chain(values.iter().map(Some))
@@ -138,12 +146,14 @@ fn lint() -> Result<()> {
             if let Some(values_file) = values_file {
                 lint.args(["-f"]).arg(values_file);
             }
+
             command::run(&mut lint)?;
             let mut template = Command::new("helm");
             template.arg("template").arg("lint").arg(&chart);
             if let Some(values_file) = values_file {
                 template.args(["-f"]).arg(values_file);
             }
+
             let output = command::capture_bytes(&mut template)?;
             let rendered_file = rendered.join(format!("{index}.yaml"));
             fs::write(&rendered_file, output)?;
@@ -154,9 +164,11 @@ fn lint() -> Result<()> {
                         .arg(&rendered_file),
                 )?;
             }
+
             index += 1;
         }
     }
+
     github_output::append("directory", &rendered.to_string_lossy())
 }
 
@@ -171,11 +183,13 @@ fn install_kubeconform() -> Result<()> {
         "macos" => "darwin",
         _ => bail!("Unsupported operating system"),
     };
+
     let architecture = match env::consts::ARCH {
         "x86_64" => "amd64",
         "aarch64" => "arm64",
         _ => bail!("Unsupported architecture"),
     };
+
     let archive_name = format!("kubeconform-{platform}-{architecture}.tar.gz");
     let base = format!("https://github.com/yannh/kubeconform/releases/download/{version}");
     let client = reqwest::blocking::Client::new();
@@ -213,6 +227,7 @@ fn install_kubeconform() -> Result<()> {
             break;
         }
     }
+
     ensure!(found, "kubeconform binary missing from verified archive");
     if let Some(path) = env::var_os("GITHUB_PATH") {
         use std::io::Write;
@@ -225,6 +240,7 @@ fn install_kubeconform() -> Result<()> {
             install_directory.display()
         )?;
     }
+
     command::run(Command::new(install_directory.join("kubeconform")).arg("-v"))
 }
 

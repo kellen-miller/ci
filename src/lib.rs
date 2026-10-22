@@ -14,6 +14,7 @@ pub mod repository;
 pub mod rust_check;
 pub mod rust_lexer;
 pub mod rust_sources;
+mod source_identity;
 pub mod tooling;
 pub mod workflow_commands;
 pub mod workflow_security;

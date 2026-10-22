@@ -177,6 +177,7 @@ fn shared_policy_enforces_package_and_workspace_without_manifest_lints() {
         } else {
             workspace.project.join("src/lib.rs")
         };
+
         fs::write(
             workspace.project.join("clippy.toml"),
             "allow-unwrap-in-tests = false\n",

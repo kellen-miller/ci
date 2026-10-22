@@ -59,6 +59,7 @@ fn detect() -> Result<()> {
     } else {
         manager_input.as_str()
     };
+
     let Some(files) = found
         .iter()
         .find(|(name, _)| *name == manager)
@@ -66,6 +67,7 @@ fn detect() -> Result<()> {
     else {
         bail!("Unsupported package manager or missing lockfile: {manager}");
     };
+
     ensure!(
         !files.is_empty(),
         "Unsupported package manager or missing lockfile: {manager}"
@@ -83,6 +85,7 @@ fn detect() -> Result<()> {
                 break;
             }
         }
+
         if version.is_empty() {
             version = package["engines"]["node"]
                 .as_str()
@@ -90,6 +93,7 @@ fn detect() -> Result<()> {
                 .to_owned();
         }
     }
+
     let workdir = env::var("INPUT_WD")?;
     let lockfile = Path::new(&workdir)
         .join(files[0])
@@ -126,9 +130,11 @@ fn install() -> Result<()> {
                 vec!["install".to_owned(), "--frozen-lockfile".to_owned()]
             }
         }
+
         "bun" => vec!["install".to_owned(), "--frozen-lockfile".to_owned()],
         _ => bail!("Unsupported package manager: {manager}"),
     };
+
     if manager == "pnpm" {
         for (environment, flag) in [
             ("PNPM_MINIMUM_RELEASE_AGE", "--config.minimum-release-age="),
@@ -141,8 +147,10 @@ fn install() -> Result<()> {
             }
         }
     }
+
     if let Ok(extra) = env::var("EXTRA_ARGS") {
         args.extend(extra.split_whitespace().map(str::to_owned));
     }
+
     command::run(Command::new(manager).args(args))
 }

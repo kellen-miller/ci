@@ -14,8 +14,10 @@ fn main() {
             process::exit(1);
         }
     }
+
     if let Ok(output) = env::var("RECORDER_STDOUT") {
         print!("{output}");
     }
+
     process::exit(env::var("RECORDER_STATUS").ok().and_then(|value| value.parse().ok()).unwrap_or(0));
 }

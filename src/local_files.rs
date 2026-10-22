@@ -68,8 +68,10 @@ fn clean_generated_output() -> Result<()> {
                 if reader.read_until(b'\n', &mut line)? == 0 {
                     break;
                 }
+
                 header.extend(line);
             }
+
             let lowered = header
                 .iter()
                 .map(u8::to_ascii_lowercase)
@@ -102,8 +104,10 @@ fn isolate_credentials() -> Result<()> {
             fs::copy(&source, &destination)?;
             fs::remove_file(&source)?;
         }
+
         Err(error) => return Err(error.into()),
     }
+
     set_private_permissions(&destination)?;
     let destination = destination.canonicalize()?;
     let _persistent_directory = directory.keep();
@@ -116,6 +120,7 @@ fn isolate_credentials() -> Result<()> {
     ] {
         github_output::write(&env_path, name, &path_value)?;
     }
+
     github_output::append("path", &path_value)
 }
 
@@ -124,10 +129,12 @@ fn is_cross_device(error: &std::io::Error) -> bool {
     {
         error.raw_os_error() == Some(18)
     }
+
     #[cfg(windows)]
     {
         error.raw_os_error() == Some(17)
     }
+
     #[cfg(not(any(unix, windows)))]
     {
         let _ = error;
@@ -154,6 +161,7 @@ fn go_config(write_output: bool) -> Result<()> {
         let args = format!("--config {}", shell_quote(&rendered)?);
         github_output::append("args", &args)?;
     }
+
     Ok(())
 }
 
@@ -170,6 +178,7 @@ fn go_format() -> Result<()> {
     if !output.status.success() || !output.stdout.is_empty() {
         bail!("Go formatting check failed");
     }
+
     Ok(())
 }
 
@@ -187,6 +196,7 @@ fn resolve_go_config() -> Result<PathBuf> {
     } else {
         PathBuf::from(configured)
     };
+
     ensure!(
         path.is_file(),
         "config file does not exist: {}",

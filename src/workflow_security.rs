@@ -48,6 +48,7 @@ pub fn run(root: &Path, allow_target: bool, allow_inherit: bool) -> Result<()> {
                 continue;
             }
         };
+
         if !allow_target {
             let event = &document["on"];
             let privileged = event.as_str() == Some("pull_request_target")
@@ -106,6 +107,7 @@ fn inspect(
                 );
             }
         }
+
         Value::Mapping(items) => {
             if let Some(reference) = document["uses"].as_str() {
                 if reference.starts_with("docker://") {
@@ -147,6 +149,7 @@ fn inspect(
                 );
             }
         }
+
         _ => {}
     }
 }

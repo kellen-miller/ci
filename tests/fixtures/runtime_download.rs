@@ -12,6 +12,7 @@ fn main() {
             println!("{}", parent.display());
             return;
         }
+
         fail("dirname received a path without a parent");
     }
 
@@ -33,6 +34,7 @@ fn main() {
         Ok(value) => value,
         Err(error) => fail(&format!("expected release URL is missing: {error}")),
     };
+
     let asset_name = Path::new(url).file_name().and_then(|name| name.to_str());
     if !url.starts_with(&format!("{expected_base}/"))
         || !matches!(asset_name, Some(name) if name.starts_with("ci-") && (name.ends_with(".tar.gz") || name.ends_with(".tar.gz.sha256")))
@@ -45,6 +47,7 @@ fn main() {
         Ok(value) => PathBuf::from(value),
         Err(error) => fail(&format!("expected output directory is missing: {error}")),
     };
+
     if output.parent() != Some(expected_directory.as_path())
         || output.file_name().and_then(|name| name.to_str()) != asset_name
     {
@@ -66,6 +69,7 @@ fn main() {
         Ok(value) => PathBuf::from(value),
         Err(error) => fail(&format!("fixture assets are missing: {error}")),
     };
+
     let source = assets.join(asset_name.unwrap_or_default());
     if let Err(error) = fs::copy(&source, &output) {
         eprintln!("cannot serve fixture asset {}: {error}", source.display());

@@ -141,6 +141,7 @@ pub fn run() -> Result<()> {
                     .args(["--all", "--", "--check", "--config-path"])
                     .arg(policy_directory.join("rustfmt.toml"));
             }
+
             "clippy" => {
                 let mut command = Command::new("cargo");
                 command.current_dir(&directory).args([
@@ -191,6 +192,7 @@ pub fn run() -> Result<()> {
                     .args(["-D", "warnings"])
                     .env("CLIPPY_CONF_DIR", &policy_directory);
             }
+
             "test" => {
                 cargo.args(&workspace).arg("--all-targets");
                 run_child(&mut cargo)?;
@@ -230,11 +232,13 @@ pub fn run() -> Result<()> {
 
                 continue;
             }
+
             "build" => {
                 cargo
                     .args(&workspace)
                     .args(["--all-targets", "--profile", &profile]);
             }
+
             _ => unreachable!("validated check"),
         }
 
@@ -275,6 +279,7 @@ fn read_lint_policy(directory: &Path) -> Result<Vec<String>> {
                 Some("forbid") => "-F",
                 _ => bail!("Invalid Rust lint policy entry: {namespace}.{name}"),
             };
+
             let mut letters = name.chars();
             ensure!(
                 letters

@@ -390,7 +390,9 @@ invocations; `.github/actions/run.sh` bootstraps the executable.
 External actions download the fixed `ci-v<version>` release selected by
 `runtime-version`. The loader selects Linux x64/arm64, macOS x64/arm64, or Windows
 x64; verifies SHA-256 against that release's checksum record; then extracts and
-executes the archive. Linux binaries use musl for static linking. The job caches
+executes the archive. The binary also checks its embedded Rust source identity
+against the action checkout and rejects a stale runtime before running operations.
+Linux binaries use musl for static linking. The job caches
 archives under `runner.temp` and verifies them on every invocation. No Cargo or
 Python interpreter is required for the shared Rust runtime.
 
@@ -411,7 +413,7 @@ pin alone does not prevent a release owner from replacing assets.
 After changing implementation, commit it before updating internal action pins:
 
 ```bash
-git add Cargo.toml Cargo.lock src config runtime-version .github/actions
+git add Cargo.toml Cargo.lock build.rs src config runtime-version .github/actions
 git commit -m "refactor: update CI operation"
 cargo run --locked -- pin-actions HEAD
 ```

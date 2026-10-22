@@ -18,6 +18,7 @@ fn invoke(operation: &str, directory: &Path, variables: &[(&str, &str)]) -> Outp
     for (name, value) in variables {
         command.env(name, value);
     }
+
     command.output().unwrap()
 }
 
@@ -41,6 +42,7 @@ fn fixture_entry() {
     let Ok(operation) = env::var("LOCAL_TOOLS_FIXTURE") else {
         return;
     };
+
     let result = match operation.as_str() {
         "clean" => personal_ci::local_files::run("clean-generated-output"),
         "credentials" => personal_ci::local_files::run("isolate-credentials"),
@@ -56,6 +58,7 @@ fn fixture_entry() {
         "helm" => personal_ci::helm::run("lint"),
         _ => panic!("unknown fixture operation"),
     };
+
     if let Err(error) = result {
         panic!("local tools operation failed: {error:#}");
     }
@@ -207,6 +210,7 @@ fn real_npm_ci_keeps_a_frozen_lockfile_on_failure() {
     if Command::new("npm").arg("--version").output().is_err() {
         return;
     }
+
     let project = TempDir::new().unwrap();
     fs::write(
         project.path().join("package.json"),
@@ -324,6 +328,7 @@ fn real_golangci_formatter_reports_diffs_without_rewriting_sources() {
     {
         return;
     }
+
     let project = TempDir::new().unwrap();
     fs::write(
         project.path().join("go.mod"),
@@ -545,6 +550,7 @@ fn real_helm_renders_default_and_environment_values_variants() {
     if Command::new("helm").arg("version").output().is_err() {
         return;
     }
+
     let project = TempDir::new().unwrap();
     let chart = project.path().join("charts/example");
     fs::create_dir_all(chart.join("templates")).unwrap();

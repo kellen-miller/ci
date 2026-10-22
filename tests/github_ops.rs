@@ -233,6 +233,7 @@ fn operation_dispatch() {
     } else {
         personal_ci::github::run(&operation)
     };
+
     if let Err(error) = result {
         panic!("{error:#}");
     }

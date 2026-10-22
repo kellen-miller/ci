@@ -40,6 +40,7 @@ fn main() {
     } else {
         stem.with_extension("0")
     };
+
     let bytes =
         fs::read(&response).unwrap_or_else(|_| panic!("unconfigured gh call: {method} {endpoint}"));
     println!("{}", String::from_utf8(bytes).unwrap());

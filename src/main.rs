@@ -73,6 +73,10 @@ enum Operation {
 }
 
 fn execute(operation: Operation) -> Result<()> {
+    if std::env::var("CI_VERIFY_SOURCE").is_ok_and(|value| value == "true") {
+        repository::verify_runtime_source()?;
+    }
+
     match operation {
         Operation::Check => repository::check(),
         Operation::RustCheck => rust_check::run(),
