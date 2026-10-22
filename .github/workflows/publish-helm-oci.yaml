@@ -52,7 +52,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Authenticate with Google Cloud
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@fd05465d1e81e3b14487324bff165b81920a16a8
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
@@ -74,7 +74,7 @@ jobs:
         env:
           CHART_PATH: ${{ inputs.chart-path }}
           CHART_VERSION: ${{ inputs.chart-version }}
-        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
+        uses: kellen-miller/ci/.github/actions/run@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           operation: helm-package
       - name: Push chart
@@ -82,6 +82,6 @@ jobs:
           REGION: ${{ inputs.repository-region }}
           PROJECT_ID: ${{ inputs.project-id }}
           REPO_NAME: ${{ inputs.repository-name }}
-        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
+        uses: kellen-miller/ci/.github/actions/run@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           operation: helm-push

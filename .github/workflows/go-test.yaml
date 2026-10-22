@@ -63,7 +63,7 @@ jobs:
           TEST_PACKAGES: ${{ inputs.test-packages }}
           VET: ${{ inputs.vet }}
           BUILD_TARGET: ${{ inputs.build-target }}
-        uses: kellen-miller/ci/.github/actions/run@fd05465d1e81e3b14487324bff165b81920a16a8
+        uses: kellen-miller/ci/.github/actions/run@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           operation: go-test
           working-directory: ${{ inputs.working-directory }}
