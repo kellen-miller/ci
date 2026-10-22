@@ -16,6 +16,37 @@ impl fmt::Display for Failure {
 
 impl std::error::Error for Failure {}
 
+/// Construct a command for an ecosystem tool that may be a script shim.
+/// Windows CreateProcess cannot execute the extensionless npm/Gradle scripts
+/// used by Bash actions. The constant adapter keeps every argument literal.
+pub fn script(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        let program = std::ffi::OsString::from_wide(
+            &program
+                .as_ref()
+                .encode_wide()
+                .map(|unit| {
+                    if unit == u16::from(b'\\') {
+                        u16::from(b'/')
+                    } else {
+                        unit
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
+        let mut command = Command::new("bash");
+        command
+            .args(["-c", "exec \"$@\"", "ci-script"])
+            .arg(program);
+        command
+    }
+
+    #[cfg(not(windows))]
+    Command::new(program)
+}
+
 /// Execute a child with inherited output, preserving failure status.
 ///
 /// # Errors

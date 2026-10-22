@@ -35,7 +35,8 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
 | `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
 
-There are 20 reusable workflows, repository CI, and a Rust runtime release workflow. Workflows remain
+There are 20 reusable workflows, plus repository CI, stale branch maintenance,
+and Rust runtime releases. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -229,9 +230,9 @@ revision. It passes lint levels from `lints.toml` as Clippy arguments, selects
 formatter. Cargo manifests and project configuration files are not rewritten.
 Set `policy-directory` only to replace all three policy files explicitly.
 
-The action requires Bash and Python 3.11 or newer, available on GitHub-hosted
-Linux and macOS runners. The script validates inputs and selected policy before
-running Cargo, rejects multiline script inputs, and stops on the first failure.
+The action requires Bash and the verified Rust runtime. Rust validates inputs
+and selected policy before running Cargo, rejects multiline script inputs, and
+stops on the first failure.
 Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
 Every dependency-resolving command uses `--locked --workspace`; commit `Cargo.lock`.
 Clippy adds `--all-targets`, the shared lint flags, and `-D warnings`.
@@ -403,12 +404,18 @@ and required Node adapters come from the selected action checkout through
 `CI_ROOT`.
 
 The `Release Rust runtime` workflow builds all five platform archives and checksum
-records. Manual dispatch builds downloadable artifacts; a `ci-v<version>` tag also
+records. Each native runner executes its packaged binary through the checksum
+loader and checks script argument handling before upload. Manual dispatch builds
+downloadable artifacts; a `ci-v<version>` tag also
 publishes them. Cargo's package version, `runtime-version`, and the release tag
 must agree. Publish the runtime assets before upgrading consumers to an action
 revision that needs them. Release assets and checksum records are trusted as
 GitHub release content; keep those versioned assets immutable. A workflow commit
 pin alone does not prevent a release owner from replacing assets.
+
+Git path output must be UTF-8; malformed filenames fail validation. Credential
+copies use mode 0600 on Unix and inherit the runner temporary directory's ACLs
+on Windows. Windows script tools run through the Bash required by these actions.
 
 After changing implementation, commit it before updating internal action pins:
 

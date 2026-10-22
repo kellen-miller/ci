@@ -3,10 +3,57 @@
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
+use std::process::Command;
 
 use anyhow::{Result, ensure};
 use flate2::{Compression, write::GzEncoder};
 use sha2::{Digest, Sha256};
+
+use crate::{command, repository};
+
+/// Qualify a native release archive through the consumer's checksum loader.
+///
+/// # Errors
+/// Returns a platform mismatch, invalid archive, or runtime failure.
+pub fn verify_runtime(target: &str, assets: &Path) -> Result<()> {
+    let (expected, runner_os, runner_arch) = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("linux", "x86_64") => ("x86_64-unknown-linux-musl", "Linux", "X64"),
+        ("linux", "aarch64") => ("aarch64-unknown-linux-musl", "Linux", "ARM64"),
+        ("macos", "x86_64") => ("x86_64-apple-darwin", "macOS", "X64"),
+        ("macos", "aarch64") => ("aarch64-apple-darwin", "macOS", "ARM64"),
+        ("windows", "x86_64") => ("x86_64-pc-windows-msvc", "Windows", "X64"),
+        platform => anyhow::bail!("unsupported native runtime platform: {platform:?}"),
+    };
+
+    ensure!(
+        target == expected,
+        "target {target} does not match native platform {expected}"
+    );
+    let temporary = tempfile::tempdir()?;
+    let directory = temporary
+        .path()
+        .join("personal-ci")
+        .join(include_str!("../runtime-version").trim())
+        .join(target);
+    fs::create_dir_all(&directory)?;
+    let archive = format!("ci-{target}.tar.gz");
+    for name in [&archive, &format!("{archive}.sha256")] {
+        fs::copy(assets.join(name), directory.join(name))?;
+    }
+
+    let root = repository::root();
+    command::run(
+        Command::new("bash")
+            .args([".github/actions/run.sh", "workflow-security", "--root", "."])
+            .current_dir(&root)
+            .env_remove("CI_BINARY")
+            .env("RUNNER_TEMP", temporary.path())
+            .env("RUNNER_OS", runner_os)
+            .env("RUNNER_ARCH", runner_arch),
+    )?;
+    println!("Qualified packaged runtime for {target}");
+    Ok(())
+}
 
 /// Package one platform executable with its exact archive checksum.
 ///

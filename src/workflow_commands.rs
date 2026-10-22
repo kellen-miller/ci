@@ -29,7 +29,7 @@ struct Matrix {
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "pages-build" => {
-            let mut build = Command::new(env::var("PM")?);
+            let mut build = command::script(env::var("PM")?);
             build.args(["run", &env::var("SCRIPT")?]);
             let assignments = env::var("BUILD_ENV").unwrap_or_default();
             for assignment in assignments.lines().filter(|line| !line.is_empty()) {
@@ -51,7 +51,7 @@ pub fn run(operation: &str) -> Result<()> {
 
         "playwright-install" | "playwright-deps" => {
             let browsers = env::var("BROWSERS").unwrap_or_default();
-            let mut install = Command::new("./node_modules/.bin/playwright");
+            let mut install = command::script("./node_modules/.bin/playwright");
             if operation == "playwright-install" {
                 install.args(["install", "--with-deps"]);
             } else {
@@ -70,7 +70,7 @@ pub fn run(operation: &str) -> Result<()> {
                 "At least one format, check or lint script is required"
             );
             for script in scripts.iter().filter(|script| !script.is_empty()) {
-                command::run(Command::new(&manager).args(["run", script]))?;
+                command::run(command::script(&manager).args(["run", script]))?;
             }
         }
 
@@ -95,7 +95,7 @@ pub fn run(operation: &str) -> Result<()> {
         }
 
         "renovate-validate" => {
-            let mut cmd = Command::new("npx");
+            let mut cmd = command::script("npx");
             cmd.args([
                 "--yes",
                 "--package",

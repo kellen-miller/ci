@@ -26,6 +26,10 @@ enum Operation {
         binary: PathBuf,
         output: PathBuf,
     },
+    VerifyRuntime {
+        target: String,
+        assets: PathBuf,
+    },
     ChangedPaths,
     WorkflowSecurity {
         #[arg(long, env = "SCAN_ROOT", default_value = ".")]
@@ -86,6 +90,7 @@ fn execute(operation: Operation) -> Result<()> {
             binary,
             output,
         } => packaging::package(&target, &binary, &output),
+        Operation::VerifyRuntime { target, assets } => packaging::verify_runtime(&target, &assets),
         Operation::ChangedPaths => changed_paths::run(),
         Operation::WorkflowSecurity {
             root,

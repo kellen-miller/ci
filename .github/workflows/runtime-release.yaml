@@ -48,6 +48,14 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
         run: cargo run --locked -- package "$TARGET" "target/$TARGET/release/ci${{ runner.os == 'Windows' && '.exe' || '' }}" dist
+      - name: Qualify packaged runtime
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: cargo run --locked -- verify-runtime "$TARGET" dist
+      - name: Verify script arguments and exit status
+        shell: bash
+        run: cargo test --locked --test process_scripts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: runtime-${{ matrix.target }}

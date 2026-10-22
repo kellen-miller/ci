@@ -3,7 +3,6 @@
 use std::env;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::Value;
@@ -116,7 +115,7 @@ fn install() -> Result<()> {
         "pnpm" => vec!["install".to_owned(), "--frozen-lockfile".to_owned()],
         "npm" => vec!["ci".to_owned()],
         "yarn" => {
-            let version = command::capture(Command::new("yarn").arg("--version"))?;
+            let version = command::capture(command::script("yarn").arg("--version"))?;
             let major = version
                 .trim()
                 .split('.')
@@ -152,5 +151,5 @@ fn install() -> Result<()> {
         args.extend(extra.split_whitespace().map(str::to_owned));
     }
 
-    command::run(Command::new(manager).args(args))
+    command::run(command::script(manager).args(args))
 }

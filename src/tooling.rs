@@ -135,7 +135,7 @@ fn playwright_version() -> Result<()> {
             is_executable(binary),
             "::error::Playwright binary not found at ./node_modules/.bin/playwright. Install @playwright/test or playwright as a dependency, or pass 'playwright-version' explicitly."
         );
-        let output = command::capture(Command::new(binary).arg("--version"))?;
+        let output = command::capture(command::script(binary).arg("--version"))?;
         version = output
             .split_whitespace()
             .nth(1)
@@ -231,5 +231,5 @@ fn gradle_check() -> Result<()> {
         .map(str::to_owned)
         .collect::<Vec<_>>();
     ensure!(!args.is_empty(), "At least one Gradle argument is required");
-    command::run(Command::new("./gradlew").args(args))
+    command::run(command::script("./gradlew").args(args))
 }

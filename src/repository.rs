@@ -51,7 +51,7 @@ pub fn check() -> Result<()> {
     let run = |name: &str, executable: &str, args: &[&str]| -> Result<()> {
         if enabled(name) {
             println!("Running {executable} {}", args.join(" "));
-            command::run(Command::new(executable).args(args).current_dir(&root))?;
+            command::run(command::script(executable).args(args).current_dir(&root))?;
         } else {
             println!("Skipping {name}: inputs unchanged");
         }
@@ -123,7 +123,7 @@ pub fn check() -> Result<()> {
 
     if enabled("release") {
         command::run(
-            Command::new("npm")
+            command::script("npm")
                 .args([
                     "ci",
                     "--prefix",

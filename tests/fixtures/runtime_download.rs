@@ -17,19 +17,12 @@ fn main() {
     }
 
     let arguments = env::args().skip(1).collect::<Vec<_>>();
-    if arguments.len() != 9
-        || arguments[0] != "--fail"
-        || arguments[1] != "--silent"
-        || arguments[2] != "--show-error"
-        || arguments[3] != "--location"
-        || arguments[4] != "--retry"
-        || arguments[5] != "3"
-        || arguments[7] != "-o"
-    {
+    let expected = ["--fail", "--silent", "--show-error", "--location", "--retry", "3", "--proto", "=https", "--proto-redir", "=https", "--connect-timeout", "15", "--max-time", "120"];
+    if arguments.len() != 17 || arguments[..14] != expected || arguments[15] != "-o" {
         fail("unexpected curl arguments");
     }
 
-    let url = &arguments[6];
+    let url = &arguments[14];
     let expected_base = match env::var("RUNTIME_EXPECTED_BASE") {
         Ok(value) => value,
         Err(error) => fail(&format!("expected release URL is missing: {error}")),
@@ -42,7 +35,7 @@ fn main() {
         fail(&format!("unexpected release URL: {url}"));
     }
 
-    let output = PathBuf::from(&arguments[8]);
+    let output = PathBuf::from(&arguments[16]);
     let expected_directory = match env::var("RUNTIME_EXPECTED_OUTPUT") {
         Ok(value) => PathBuf::from(value),
         Err(error) => fail(&format!("expected output directory is missing: {error}")),

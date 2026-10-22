@@ -2,6 +2,9 @@
 # Bootstrap only: verify a fixed release before handing all operation logic to Rust.
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [[ "${RUNNER_OS:-}" == Windows || "${OSTYPE:-}" == msys* ]]; then
+  root="$(cygpath -m "$root")"
+fi
 export CI_ROOT="$root"
 if [[ -n "${CI_BINARY:-}" ]]; then
   exec "$CI_BINARY" "$@"
@@ -19,12 +22,13 @@ case "${RUNNER_OS:-$(uname -s)}/${RUNNER_ARCH:-$(uname -m)}" in
   *) echo 'Unsupported CI runtime platform' >&2; exit 1 ;;
 esac
 directory="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/personal-ci/$version/$target"
+[[ "$target" != *windows* ]] || directory="${directory//\\//}"
 mkdir -p "$directory"
 archive="ci-$target.tar.gz"
 base="https://github.com/kellen-miller/ci/releases/download/ci-v$version"
 if [[ ! -f "$directory/$archive" || ! -f "$directory/$archive.sha256" ]]; then
-  curl --fail --silent --show-error --location --retry 3 "$base/$archive" -o "$directory/$archive"
-  curl --fail --silent --show-error --location --retry 3 "$base/$archive.sha256" -o "$directory/$archive.sha256"
+  curl --fail --silent --show-error --location --retry 3 --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 "$base/$archive" -o "$directory/$archive"
+  curl --fail --silent --show-error --location --retry 3 --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 "$base/$archive.sha256" -o "$directory/$archive.sha256"
 fi
 expected="$(awk -v name="$archive" '$2 == name {print $1}' "$directory/$archive.sha256")"
 [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo 'Invalid CI runtime checksum record' >&2; exit 1; }
