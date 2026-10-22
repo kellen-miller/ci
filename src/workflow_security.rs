@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use regex::Regex;
 use serde_yaml_ng::Value;
 use walkdir::WalkDir;
@@ -23,11 +23,13 @@ pub fn run(root: &Path, allow_target: bool, allow_inherit: bool) -> Result<()> {
                 .contains(&entry.file_name().to_string_lossy().as_ref())
         }) {
             let entry = entry?;
-            if entry.file_type().is_file()
-                && matches!(
-                    entry.path().extension().and_then(|value| value.to_str()),
-                    Some("yaml" | "yml")
-                )
+            // Resolve YAML file links while WalkDir leaves directory links untraversed.
+            if matches!(
+                entry.path().extension().and_then(|value| value.to_str()),
+                Some("yaml" | "yml")
+            ) && std::fs::metadata(entry.path())
+                .with_context(|| format!("inspect workflow YAML: {}", entry.path().display()))?
+                .is_file()
             {
                 files.push(entry.into_path());
             }
@@ -41,13 +43,20 @@ pub fn run(root: &Path, allow_target: bool, allow_inherit: bool) -> Result<()> {
     let mut errors = Vec::new();
     for file in &files {
         let location = file.strip_prefix(root)?.display().to_string();
-        let document: Value = match serde_yaml_ng::from_str(&std::fs::read_to_string(file)?) {
+        let text = std::fs::read_to_string(file)
+            .with_context(|| format!("read workflow YAML: {}", file.display()))?;
+        let document: Value = match serde_yaml_ng::from_str(&text) {
             Ok(value) => value,
             Err(error) => {
                 errors.push(format!("{location}: invalid YAML: {error}"));
                 continue;
             }
         };
+
+        if !document.is_mapping() {
+            errors.push(format!("{location}: expected a YAML mapping"));
+            continue;
+        }
 
         if !allow_target {
             let event = &document["on"];

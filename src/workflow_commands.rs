@@ -92,6 +92,17 @@ pub fn run(operation: &str) -> Result<()> {
             }
 
             github_output::append("validate", if validate { "true" } else { "false" })?;
+            if !validate && let Some(summary) = env::var_os("GITHUB_STEP_SUMMARY") {
+                use std::io::Write;
+
+                writeln!(
+                    fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(summary)?,
+                    "Renovate config unchanged; skipping validation."
+                )?;
+            }
         }
 
         "renovate-validate" => {
@@ -259,7 +270,7 @@ pub fn run(operation: &str) -> Result<()> {
                 .ok()
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| sha.clone());
-            let predicate = serde_json::json!({"buildDefinition":{"buildType":env::var("BUILD_TYPE")?,"externalParameters":{"repository":repository,"ref":reference,"workflowRef":workflow},"internalParameters":{},"resolvedDependencies":[{"uri":format!("git+{repository}@{reference}"),"digest":{"gitCommit":sha}},{"uri":workflow,"digest":{"gitCommit":workflow_sha}}]},"runDetails":{"builder":{"id":"https://github.com/actions/runner"},"metadata":{"invocationId":env::var("INVOCATION_ID")?}}});
+            let predicate = serde_json::json!({"buildDefinition":{"buildType":env::var("BUILD_TYPE")?,"externalParameters":{"repository":repository,"ref":reference,"workflowRef":workflow},"internalParameters":{},"resolvedDependencies":[{"uri":format!("git+{repository}@{reference}"),"digest":{"gitCommit":sha}},{"uri":workflow,"digest":{"gitCommit":workflow_sha}}]},"runDetails":{"builder":{"id":"https://github.com/actions/runner"},"metadata":{"invocationId":env::var("INVOCATION_ID")?},"byproducts":[]}});
             fs::write(
                 "slsa-provenance.json",
                 format!("{}\n", serde_json::to_string_pretty(&predicate)?),
