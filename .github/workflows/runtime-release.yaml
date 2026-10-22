@@ -1,16 +1,67 @@
 name: Release Rust runtime
 on:
   push:
-    tags:
-      - ci-v*
+    branches:
+      - main
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: runtime-${{ github.ref }}
+  group: runtime-release
   cancel-in-progress: false
 jobs:
+  version:
+    permissions:
+      contents: write
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    env:
+      CI_BINARY: ${{ github.workspace }}/target/debug/ci
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          rustflags: ''
+      - run: cargo build --locked
+      - id: release
+        uses: ./.github/actions/release
+        with:
+          token: ${{ github.token }}
+          first-release-version: '0.1.0'
+          dry-run: 'true'
+      - name: Commit synchronized runtime version
+        id: version
+        if: steps.release.outputs.version != ''
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_SSH_KEY: ${{ secrets.RUNTIME_RELEASE_SSH_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cargo run --locked -- prepare-runtime-version "$VERSION"
+          if ! git diff --quiet -- Cargo.toml Cargo.lock runtime-version; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add Cargo.toml Cargo.lock runtime-version
+            git commit -m "chore(release): $VERSION [skip ci]"
+            release_dir="$(mktemp -d "$RUNNER_TEMP/release-ssh.XXXXXX")"
+            trap 'shred -u "$release_dir/key"' EXIT
+            printf '%s\n' "$RELEASE_SSH_KEY" > "$release_dir/key"
+            chmod 600 "$release_dir/key"
+            gh api meta --jq '.ssh_keys[] | "github.com " + .' > "$release_dir/known_hosts"
+            export GIT_SSH_COMMAND="ssh -i $release_dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$release_dir/known_hosts -o StrictHostKeyChecking=yes"
+            git push "git@github.com:$GITHUB_REPOSITORY.git" HEAD:refs/heads/main
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   build:
+    needs: version
+    if: needs.version.outputs.version != ''
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +81,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          ref: ${{ needs.version.outputs.commit }}
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
         with:
           toolchain: stable
@@ -63,21 +115,42 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   publish:
-    if: startsWith(github.ref, 'refs/tags/ci-v')
-    needs: build
+    needs:
+      - version
+      - build
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    env:
+      CI_BINARY: ${{ github.workspace }}/target/debug/ci
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          ref: ${{ needs.version.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          rustflags: ''
+      - run: cargo build --locked
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: runtime-*
           merge-multiple: true
           path: dist
-      - name: Publish versioned archives
+      - id: release
+        uses: ./.github/actions/release
+        with:
+          token: ${{ github.token }}
+          first-release-version: '0.1.0'
+      - name: Publish qualified archives
+        if: steps.release.outputs.release_published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes dist/*
+          RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
+          EXPECTED_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          test "$RELEASE_VERSION" = "$EXPECTED_VERSION"
+          gh release upload "$RELEASE_TAG" dist/*

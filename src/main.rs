@@ -21,6 +21,9 @@ enum Operation {
     PinActions {
         commit: String,
     },
+    PrepareRuntimeVersion {
+        version: String,
+    },
     Package {
         target: String,
         binary: PathBuf,
@@ -85,6 +88,9 @@ fn execute(operation: Operation) -> Result<()> {
         Operation::Check => repository::check(),
         Operation::RustCheck => rust_check::run(),
         Operation::PinActions { commit } => repository::pin_actions(&commit),
+        Operation::PrepareRuntimeVersion { version } => {
+            packaging::prepare_version(&repository::root(), &version)
+        }
         Operation::Package {
             target,
             binary,

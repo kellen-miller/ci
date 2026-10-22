@@ -389,7 +389,7 @@ invocations; `.github/actions/run.sh` bootstraps the executable.
 
 ## Runtime binaries and action pins
 
-External actions download the fixed `ci-v<version>` release selected by
+External actions download the fixed `v<version>` release selected by
 `runtime-version`. The loader selects Linux x64/arm64, macOS x64/arm64, or Windows
 x64; verifies SHA-256 against that release's checksum record; then extracts and
 executes the archive. The binary also checks its embedded Rust source identity
@@ -405,15 +405,28 @@ binary directly, allowing PR tests without a published release. Bundled policy
 and required Node adapters come from the selected action checkout through
 `CI_ROOT`.
 
-The `Release Rust runtime` workflow builds all five platform archives and checksum
-records. Each native runner executes its packaged binary through the checksum
-loader and checks script argument handling before upload. Manual dispatch builds
-downloadable artifacts; a `ci-v<version>` tag also
-publishes them. Cargo's package version, `runtime-version`, and the release tag
-must agree. Publish the runtime assets before upgrading consumers to an action
-revision that needs them. Release assets and checksum records are trusted as
-GitHub release content; keep those versioned assets immutable. A workflow commit
-pin alone does not prevent a release owner from replacing assets.
+The `Release Rust runtime` workflow runs on pushes to `main` and manual dispatch
+on `main`. It uses the shared Conventional Commit release action to calculate
+versions, starting at `0.1.0`. A commit without a release-triggering change skips
+build and publication. All five platform archives must pass native qualification
+before publication. The workflow synchronizes Cargo and loader metadata with a
+`chore(release): <version> [skip ci]` commit directly to `main`, then all platform
+builds and publication check out that exact commit. A repository-specific SSH
+key, stored as `RUNTIME_RELEASE_SSH_KEY`, bypasses PR and required-check rules
+for this metadata push. `.github/rulesets/repositories.json` owns this exception;
+force-push protection remains enforced. Ordinary changes still require PRs.
+The skip marker prevents the metadata push from starting a second release run;
+the current run continues through qualification and publication. A concurrent
+update to `main` rejects the push instead of overwriting it; retry on current main.
+The workflow uses its freshly built binary, so the first release does not depend
+on an existing runtime. GitHub's token-generated tag does not need to trigger a
+second workflow.
+
+Consumers should pin the published release tag's commit, whose `runtime-version`
+and embedded source identity match the assets. Publish the runtime assets before
+upgrading consumers. Release assets and checksum records are trusted as GitHub
+release content; keep those versioned assets immutable. A workflow commit pin
+alone does not prevent a release owner from replacing assets.
 
 Git path output must be UTF-8; malformed filenames fail validation. Credential
 copies use mode 0600 on Unix and inherit the runner temporary directory's ACLs

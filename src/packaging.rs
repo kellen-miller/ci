@@ -71,7 +71,7 @@ pub fn package(target: &str, binary: &Path, output: &Path) -> Result<()> {
         "runtime-version must match Cargo package version"
     );
     if let Ok(reference) = std::env::var("GITHUB_REF")
-        && let Some(version) = reference.strip_prefix("refs/tags/ci-v")
+        && let Some(version) = reference.strip_prefix("refs/tags/v")
     {
         ensure!(
             version == env!("CARGO_PKG_VERSION"),
@@ -122,5 +122,52 @@ pub fn package(target: &str, binary: &Path, output: &Path) -> Result<()> {
         format!("{}  {name}\n", hex::encode(hash.finalize())),
     )?;
     println!("Packaged {}", archive_path.display());
+    Ok(())
+}
+
+/// Synchronize release metadata before compiling platform archives.
+///
+/// # Errors
+/// Rejects non-stable versions or malformed package metadata.
+pub fn prepare_version(root: &Path, version: &str) -> Result<()> {
+    let parsed = semver::Version::parse(version)?;
+    ensure!(
+        parsed.pre.is_empty() && parsed.build.is_empty(),
+        "stable release version required"
+    );
+    let manifest_path = root.join("Cargo.toml");
+    let manifest = fs::read_to_string(&manifest_path)?;
+    let metadata: toml::Value = toml::from_str(&manifest)?;
+    let previous = metadata["package"]["version"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("missing package version"))?;
+    let name = metadata["package"]["name"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("missing package name"))?;
+    let lock_path = root.join("Cargo.lock");
+    let lock = fs::read_to_string(&lock_path)?;
+    let record = format!("name = \"{name}\"\nversion = \"{previous}\"");
+    ensure!(
+        lock.matches(&record).count() == 1,
+        "expected one root package in Cargo.lock"
+    );
+    let declaration = format!("version = \"{previous}\"");
+    ensure!(
+        manifest.matches(&declaration).count() == 1,
+        "expected one package version declaration"
+    );
+    fs::write(
+        manifest_path,
+        manifest.replacen(&declaration, &format!("version = \"{version}\""), 1),
+    )?;
+    fs::write(
+        lock_path,
+        lock.replacen(
+            &record,
+            &format!("name = \"{name}\"\nversion = \"{version}\""),
+            1,
+        ),
+    )?;
+    fs::write(root.join("runtime-version"), format!("{version}\n"))?;
     Ok(())
 }
