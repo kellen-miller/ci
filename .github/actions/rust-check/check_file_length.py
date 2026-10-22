@@ -304,7 +304,7 @@ for path in sorted(candidates):
         continue
 
     try:
-        source = path.read_text(encoding="utf-8")
+        source = path.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
     except (OSError, RuntimeError, UnicodeError) as error:
         raise SystemExit(
             f"Cannot read Rust source for file-length check: {path}: {error}"

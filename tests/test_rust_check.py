@@ -554,6 +554,42 @@ if sys.argv[1] == os.environ.get("FAIL_CHECK"):
         self.assertIn("(751 lines)", result.stderr)
         self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
 
+    def test_code_line_count_preserves_bom_and_crlf_semantics(self):
+        fixture = self.project / "src/lib.rs"
+        fixture.parent.mkdir()
+        metadata = {
+            "workspace_members": ["fixture"],
+            "target_directory": str(self.root / "custom target output"),
+            "packages": [
+                {
+                    "id": "fixture",
+                    "name": "fixture",
+                    "manifest_path": str(self.project / "Cargo.toml"),
+                }
+            ],
+        }
+        crlf_literals = (
+            b'// excluded\r\nconst RAW: &str = r#"first\r\n'
+            b'// literal\r\n"#;\r\nconst NORMAL: &str = "continued\\\r\n";\r\n'
+        )
+        for prefix, existing_lines in (
+            (b"\xef\xbb\xbf// BOM and comment\n", 0),
+            (crlf_literals, 5),
+            (b"// bare CR stays inside this comment\rnot_code();\n", 0),
+        ):
+            with self.subTest(prefix=prefix):
+                source = prefix + b"const _: u8 = 0;\r\n" * (750 - existing_lines)
+                fixture.write_bytes(source)
+                result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual([call["argv"][0] for call in calls], ["metadata", "clippy"])
+
+                fixture.write_bytes(source + b"const _: u8 = 1;")
+                result, calls = self.run_check(CHECKS="clippy", CARGO_METADATA=json.dumps(metadata))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("(751 lines)", result.stderr)
+                self.assertEqual([call["argv"][0] for call in calls], ["metadata"])
+
     def test_comments_and_blank_lines_do_not_count_toward_limit(self):
         fixture = self.project / "src/lib.rs"
         fixture.parent.mkdir()
