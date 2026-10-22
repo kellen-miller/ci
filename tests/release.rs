@@ -112,7 +112,7 @@ impl Repository {
             .unwrap();
         serde_json::to_writer(
             child.stdin.take().unwrap(),
-            &json!({"cwd":cwd,"commits":commits,"paths":paths}),
+            &json!({"cwd":cwd,"hashes":commits.iter().map(|commit| &commit["hash"]).collect::<Vec<_>>(),"paths":paths}),
         )
         .unwrap();
         child.wait_with_output().unwrap()
@@ -153,7 +153,8 @@ impl Repository {
         // Caller configuration preserves the generated Rust policy while omitting
         // the GitHub plugin, allowing the real engine to run entirely locally.
         let configuration = format!(
-            "const settings = JSON.parse(require('node:fs').readFileSync(process.env.CI_RELEASE_SETTINGS, 'utf8'));\nconst installed = {installed};\nmodule.exports = {{repositoryUrl: {}, plugins: settings.plugins.filter(([name]) => name !== '@semantic-release/github').map(([name, options]) => [installed[name] || name, options])}};\n",
+            "const settings = JSON.parse(require('node:fs').readFileSync(process.env.CI_RELEASE_SETTINGS, 'utf8'));\nrequire('node:fs').writeFileSync({}, process.env.SEMANTIC_RELEASE_COMMIT_PATHS ?? '<missing>');\nconst installed = {installed};\nmodule.exports = {{repositoryUrl: {}, plugins: settings.plugins.filter(([name]) => name !== '@semantic-release/github').map(([name, options]) => [installed[name] || name, options])}};\n",
+            json!(self.temporary.path().join("resolved-scope")),
             json!(format!("file://{}", self.remote.display()))
         );
         fs::write(&path, configuration).unwrap();
@@ -241,7 +242,7 @@ fn scope_paths_normalize_boundaries_and_reject_absolute_or_parent_paths() {
 }
 
 #[test]
-fn release_filter_uses_git_files_complete_segments_and_preserves_commit_objects() {
+fn release_filter_selects_hashes_using_git_files_and_complete_segments() {
     let repository = Repository::new();
     let service = repository.commit(
         "cmd/service/main.rs",
@@ -260,19 +261,24 @@ fn release_filter_uses_git_files_complete_segments_and_preserves_commit_objects(
     successful(&output);
     assert_eq!(
         serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-        json!([service])
+        json!([service["hash"]])
     );
     let output = repository.filter(&cwd, &commits, &["go.work"]);
     successful(&output);
     assert_eq!(
         serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-        json!([root])
+        json!([root["hash"]])
     );
     let output = repository.filter(&cwd, &commits, &["."]);
     successful(&output);
     assert_eq!(
         serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-        json!(commits)
+        json!(
+            commits
+                .iter()
+                .map(|commit| &commit["hash"])
+                .collect::<Vec<_>>()
+        )
     );
 }
 
@@ -291,7 +297,7 @@ fn release_filter_attributes_cross_module_renames_and_deletions_to_source() {
         successful(&output);
         assert_eq!(
             serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-            json!([moved])
+            json!([moved["hash"]])
         );
     }
 
@@ -309,7 +315,7 @@ fn release_filter_attributes_cross_module_renames_and_deletions_to_source() {
     successful(&output);
     assert_eq!(
         serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-        json!([removed])
+        json!([removed["hash"]])
     );
 }
 
@@ -346,7 +352,7 @@ fn release_filter_excludes_merge_messages_from_module_history() {
     successful(&output);
     assert_eq!(
         serde_json::from_slice::<Value>(&output.stdout).unwrap(),
-        json!([service])
+        json!([service["hash"]])
     );
 }
 
@@ -405,7 +411,14 @@ fn invalid_release_inputs_fail_before_npm_or_node() {
         ),
         (
             "FIRST_RELEASE_VERSION",
-            vec!["not-semver", "v1.0.0", "1", "1.0.0\n"],
+            vec![
+                "not-semver",
+                "V1.0.0",
+                "v 1.0.0",
+                "1",
+                "1.0.0-01",
+                "9007199254740992.0.0",
+            ],
             "first-release-version must be a valid semver version",
         ),
         (
@@ -455,6 +468,32 @@ fn invalid_release_inputs_fail_before_npm_or_node() {
         serde_json::from_slice::<Value>(&fs::read(paths).unwrap()).unwrap(),
         json!(["cmd/service", "pkg/shared"])
     );
+
+    for (name, value, tool) in [
+        ("EXTRA_PLUGINS", "example@^1||^2", "npm"),
+        ("EXTRA_PLUGINS", "@scope/example@1.x", "npm"),
+        ("EXTRA_PLUGINS", "example@latest", "npm"),
+        ("FIRST_RELEASE_VERSION", "v1.0.0", "node"),
+        ("FIRST_RELEASE_VERSION", "1.0.0\n", "node"),
+    ] {
+        fs::remove_file(&log).unwrap();
+        let output = release_command(temporary.path(), temporary.path())
+            .env("PATH", tools.path())
+            .env("CI_RELEASE_TEST_TOOL_LOG", &log)
+            .env("EXTRA_PLUGINS", "")
+            .env("FIRST_RELEASE_VERSION", "")
+            .env("SEMANTIC_RELEASE_COMMIT_PATHS", "")
+            .env(name, value)
+            .output()
+            .unwrap();
+        assert_eq!(
+            output.status.code(),
+            Some(91),
+            "{name}={value:?}: {}",
+            combined(&output)
+        );
+        assert!(fs::read_to_string(&log).unwrap().contains(tool));
+    }
 }
 
 #[test]
@@ -477,6 +516,16 @@ fn semantic_release_dry_runs_initial_version_and_existing_tag_major_without_toke
     assert_eq!(outputs["release_published"], "false");
     assert!(repository.remote_tags().is_empty());
     assert!(repository.git(&["tag"]).is_empty());
+    let (output, outputs) = repository.release(
+        &repository.root,
+        &config,
+        &[("FIRST_RELEASE_VERSION", "v1.0.0")],
+    );
+    successful(&output);
+    assert_eq!(outputs["version"], "v1.0.0");
+    assert_eq!(outputs["major_minor"], "1.0");
+    assert_eq!(outputs["git_tag"], "vv1.0.0");
+    assert_eq!(outputs["release_published"], "false");
     repository.tag("v1.0.0");
     repository.commit(
         "source.txt",
@@ -553,4 +602,51 @@ fn semantic_release_scopes_analysis_and_notes_from_subdirectory() {
     assert!(text.contains("skip empty proxy"), "{text}");
     assert!(!text.contains("replace policies"), "{text}");
     assert_eq!(repository.remote_tags(), "cmd/service/v1.3.0");
+    assert_eq!(
+        fs::read_to_string(repository.temporary.path().join("resolved-scope")).unwrap(),
+        "cmd/service/"
+    );
+    let explicit = " ./cmd/service/ ,\n ";
+    let (output, outputs) = repository.release(
+        &cwd,
+        &config,
+        &[
+            ("SEMANTIC_RELEASE_TAG_PREFIX", "cmd/service/v"),
+            ("SEMANTIC_RELEASE_COMMIT_PATHS", explicit),
+        ],
+    );
+    successful(&output);
+    assert_eq!(outputs["version"], "1.3.1");
+    assert_eq!(
+        fs::read_to_string(repository.temporary.path().join("resolved-scope")).unwrap(),
+        explicit
+    );
+}
+
+#[test]
+#[ignore = "requires npm ci --prefix .github/actions/release/semantic-release and Node 24+"]
+fn scoped_release_preserves_large_node_commit_objects_for_writer_plugins() {
+    let repository = Repository::new();
+    repository.commit(
+        "cmd/service/source.txt",
+        "source",
+        "fix: preserve Node commit objects",
+    );
+    repository.push();
+    let remote = format!("file://{}", repository.remote.display());
+    let config = Path::new(ROOT).join("tests/fixtures/release_objects.cjs");
+    let (output, outputs) = repository.release(
+        &repository.root.join("cmd/service"),
+        &config,
+        &[("CI_RELEASE_TEST_REMOTE", &remote)],
+    );
+    successful(&output);
+    assert_eq!(outputs["version"], "1.0.0");
+    assert_eq!(outputs["release_published"], "false");
+    let text = combined(&output);
+    assert!(
+        text.contains("date=true;method=function;payload=11534336"),
+        "{text}"
+    );
+    assert!(repository.remote_tags().is_empty());
 }

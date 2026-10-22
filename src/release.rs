@@ -15,7 +15,7 @@ use crate::{command, github_output};
 
 #[derive(Deserialize)]
 struct CommitFilter {
-    commits: Vec<Value>,
+    hashes: Vec<String>,
     cwd: PathBuf,
     paths: Vec<String>,
 }
@@ -57,7 +57,7 @@ pub fn scope_paths(value: &str) -> Result<Vec<String>> {
     Ok(paths)
 }
 
-/// Filter semantic-release commit objects using actual changed files.
+/// Select semantic-release commit hashes using actual changed files.
 ///
 /// # Errors
 /// Returns validation, file, network, or child-process failures to the caller.
@@ -69,10 +69,9 @@ pub fn filter_commits() -> Result<()> {
     );
     let hash_pattern = Regex::new(r"^[0-9a-fA-F]{7,64}$")?;
     let mut selected = Vec::new();
-    for commit in input.commits {
-        let hash = commit["hash"].as_str().context("commit hash missing")?;
+    for hash in input.hashes {
         ensure!(
-            hash_pattern.is_match(hash),
+            hash_pattern.is_match(&hash),
             "Invalid commit hash from semantic-release: {hash}"
         );
         let files = command::capture_bytes(Command::new("git").current_dir(&input.cwd).args([
@@ -83,7 +82,7 @@ pub fn filter_commits() -> Result<()> {
             "--no-renames",
             "-z",
             "-r",
-            hash,
+            &hash,
             "--",
         ]))?;
         let matches = files
@@ -96,7 +95,7 @@ pub fn filter_commits() -> Result<()> {
                 })
             });
         if matches {
-            selected.push(commit);
+            selected.push(hash);
         }
     }
 
@@ -111,6 +110,7 @@ fn invoke_engine(
     settings: &Value,
     dry_run: bool,
     paths: &[String],
+    scope: &str,
 ) -> Result<Value> {
     let config = tempfile::NamedTempFile::new()?;
     serde_json::to_writer(config.as_file(), settings)?;
@@ -123,7 +123,8 @@ fn invoke_engine(
             .env("CI_RELEASE_RESULT", result.path())
             .env("CI_RELEASE_DRY_RUN", dry_run.to_string())
             .env("CI_RELEASE_BINARY", env::current_exe()?)
-            .env("CI_RELEASE_PATHS", serde_json::to_string(paths)?),
+            .env("CI_RELEASE_PATHS", serde_json::to_string(paths)?)
+            .env("SEMANTIC_RELEASE_COMMIT_PATHS", scope),
     )?;
     Ok(serde_json::from_slice(&fs::read(result.path())?)?)
 }
@@ -137,7 +138,7 @@ pub fn run() -> Result<()> {
     let dry_run = env::var("DRY_RUN").is_ok_and(|value| value == "true");
     let first_version = env::var("FIRST_RELEASE_VERSION").unwrap_or_default();
     if !first_version.is_empty() {
-        semver::Version::parse(&first_version)
+        js_semver::Version::parse(&first_version)
             .context("first-release-version must be a valid semver version")?;
     }
 
@@ -172,9 +173,7 @@ pub fn run() -> Result<()> {
             .unwrap_or_default();
         ensure!(
             package.is_match(spec)
-                && (semver::Version::parse(version).is_ok()
-                    || semver::VersionReq::parse(version).is_ok()
-                    || tag.is_match(version)),
+                && (js_semver::Range::parse(version).is_ok() || tag.is_match(version)),
             "Extra plugins must be public npm package@version specifications"
         );
     }
@@ -225,6 +224,7 @@ pub fn run() -> Result<()> {
         &settings,
         dry_run || !first_version.is_empty(),
         &paths,
+        &scope,
     )?;
     let mut strategy = if result.is_object() {
         "semantic"
@@ -270,7 +270,7 @@ pub fn run() -> Result<()> {
                 )?;
             }
         } else {
-            result = invoke_engine(&directory, &cwd, &settings, dry_run, &paths)?;
+            result = invoke_engine(&directory, &cwd, &settings, dry_run, &paths, &scope)?;
         }
     }
 
@@ -280,7 +280,7 @@ pub fn run() -> Result<()> {
     let major_minor = if version.is_empty() {
         String::new()
     } else {
-        let version = semver::Version::parse(version)?;
+        let version = js_semver::Version::parse(version)?;
         format!("{}.{}", version.major, version.minor)
     };
 
