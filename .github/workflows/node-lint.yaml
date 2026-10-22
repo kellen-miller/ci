@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: kellen-miller/ci/.github/actions/setup-node@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
+      - uses: kellen-miller/ci/.github/actions/setup-node@2c8afb10d99eea786b6752c7f26daebe983e5d10
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}
@@ -72,7 +72,7 @@ jobs:
           CHECK_SCRIPT: ${{ inputs.check-script }}
           FORMAT_SCRIPT: ${{ inputs.format-script }}
           LINT_SCRIPT: ${{ inputs.lint-script }}
-        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
+        uses: kellen-miller/ci/.github/actions/run@2c8afb10d99eea786b6752c7f26daebe983e5d10
         with:
           operation: node-checks
           working-directory: ${{ inputs.working-directory }}

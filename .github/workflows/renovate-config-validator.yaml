@@ -36,7 +36,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CONFIG_FILE: ${{ inputs.config-file }}
-        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
+        uses: kellen-miller/ci/.github/actions/run@2c8afb10d99eea786b6752c7f26daebe983e5d10
         with:
           operation: renovate-changes
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -49,6 +49,6 @@ jobs:
           CONFIG_FILE: ${{ inputs.config-file }}
           GLOBAL_CONFIG: ${{ inputs.global-config }}
           RENOVATE_VERSION: ${{ inputs.renovate-version }}
-        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
+        uses: kellen-miller/ci/.github/actions/run@2c8afb10d99eea786b6752c7f26daebe983e5d10
         with:
           operation: renovate-validate
