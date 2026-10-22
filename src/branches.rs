@@ -6,6 +6,7 @@ use std::env;
 use anyhow::{Context, Result, ensure};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::github::{api, encode, repository};
 
@@ -18,6 +19,54 @@ struct Warning {
     warned_at: Option<String>,
 }
 
+struct CleanupReport {
+    number: u64,
+    warnings: BTreeMap<String, Warning>,
+}
+
+impl CleanupReport {
+    fn from_issues(issues: &Value, actor: &str, repo: &str) -> Result<Option<Self>> {
+        let reports: Vec<_> = issues
+            .as_array()
+            .context("expected issues")?
+            .iter()
+            .filter(|issue| {
+                issue["body"]
+                    .as_str()
+                    .is_some_and(|body| body.contains(MARKER))
+                    && issue.get("pull_request").is_none()
+                    && issue["user"]["login"] == actor
+            })
+            .collect();
+        ensure!(
+            reports.len() <= 1,
+            "Multiple cleanup reports in {repo}; resolve before proceeding"
+        );
+        let Some(report) = reports.first() else {
+            return Ok(None);
+        };
+
+        let state = report["body"]
+            .as_str()
+            .context("report body missing")?
+            .split_once(MARKER)
+            .context("report marker missing")?
+            .1
+            .split_once(" -->")
+            .context("report marker is unterminated")?
+            .0;
+        Ok(Some(Self {
+            number: report["number"].as_u64().context("report number missing")?,
+            warnings: serde_json::from_str(state).context("invalid cleanup warning state")?,
+        }))
+    }
+}
+
+/// Warn about stale branches or delete unchanged branches after their warning window.
+///
+/// # Errors
+/// Returns an error for invalid configuration, API responses or persisted reports,
+/// and for any failed GitHub API request.
 pub fn run() -> Result<()> {
     let selected = env::var("REPOSITORIES")
         .ok()
@@ -78,37 +127,8 @@ pub fn run() -> Result<()> {
             None,
             true,
         )?;
-        let reports: Vec<_> = issues
-            .as_array()
-            .context("expected issues")?
-            .iter()
-            .filter(|issue| {
-                issue["body"]
-                    .as_str()
-                    .is_some_and(|body| body.contains(MARKER))
-                    && issue.get("pull_request").is_none()
-                    && issue["user"]["login"] == actor
-            })
-            .collect();
-        ensure!(
-            reports.len() <= 1,
-            "Multiple cleanup reports in {repo}; resolve before proceeding"
-        );
-        let report = reports.first();
-        let previous: BTreeMap<String, Warning> = if let Some(report) = report {
-            let state = report["body"]
-                .as_str()
-                .context("report body missing")?
-                .split_once(MARKER)
-                .context("report marker missing")?
-                .1
-                .split_once(" -->")
-                .context("report marker is unterminated")?
-                .0;
-            serde_json::from_str(state).context("invalid cleanup warning state")?
-        } else {
-            BTreeMap::new()
-        };
+        let report = CleanupReport::from_issues(&issues, actor, repo)?;
+        let previous = report.as_ref().map(|report| &report.warnings);
         let mut warnings = BTreeMap::new();
         let mut deleted = Vec::new();
         let branches = api(
@@ -159,7 +179,7 @@ pub fn run() -> Result<()> {
                 continue;
             }
 
-            let warned = previous.get(name);
+            let warned = previous.and_then(|warnings| warnings.get(name));
             let mature = if let Some(warning) = warned.filter(|warning| warning.sha == sha) {
                 match &warning.warned_at {
                     Some(date) => {
@@ -247,9 +267,8 @@ pub fn run() -> Result<()> {
             serde_json::to_string(&warnings)?
         ));
         if let Some(report) = report {
-            let number = report["number"].as_u64().context("report number missing")?;
             api(
-                &format!("repos/{repo}/issues/{number}"),
+                &format!("repos/{repo}/issues/{}", report.number),
                 "PATCH",
                 Some(
                     &serde_json::json!({"body": body, "state": if warnings.is_empty() { "closed" } else { "open" }}),

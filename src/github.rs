@@ -32,6 +32,10 @@ struct Label {
     name: String,
 }
 
+/// Execute the GitHub operation selected by an action.
+///
+/// # Errors
+/// Returns an error for invalid inputs, failed API requests or local writes.
 pub fn run(operation: &str) -> Result<()> {
     match operation {
         "select-runner" => select_runner(),
@@ -64,8 +68,7 @@ pub(crate) fn encode(value: &str) -> String {
         if byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte) {
             encoded.push(char::from(byte));
         } else {
-            use std::fmt::Write;
-            write!(encoded, "%{byte:02X}").expect("write to string");
+            encoded.push_str(&format!("%{byte:02X}"));
         }
     }
 
