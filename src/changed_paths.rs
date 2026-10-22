@@ -26,6 +26,7 @@ pub fn select(filters: &Filters, paths: &[String]) -> Result<BTreeMap<String, bo
         require_literal_leading_dot: false,
     };
     let mut selected = BTreeMap::new();
+    let repeated_stars = regex::Regex::new(r"\*+")?;
     for (group, patterns) in filters {
         ensure!(
             !group.is_empty() && !patterns.is_empty(),
@@ -41,7 +42,7 @@ pub fn select(filters: &Filters, paths: &[String]) -> Result<BTreeMap<String, bo
             // stars is one wildcard here. The root alternative is explicit.
             for alternative in std::iter::once(pattern.as_str()).chain(pattern.strip_prefix("**/"))
             {
-                let normalized = regex::Regex::new(r"\*+")?.replace_all(alternative, "*");
+                let normalized = repeated_stars.replace_all(alternative, "*");
                 let matcher = Pattern::new(&normalized)?;
                 matched |= paths.iter().any(|path| matcher.matches_with(path, options));
             }

@@ -17,9 +17,21 @@ pub fn package(target: &str, binary: &Path, output: &Path) -> Result<()> {
         !target.is_empty()
             && target
                 .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'),
+                .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte)),
         "invalid target triple"
     );
+    ensure!(
+        include_str!("../runtime-version").trim() == env!("CARGO_PKG_VERSION"),
+        "runtime-version must match Cargo package version"
+    );
+    if let Ok(reference) = std::env::var("GITHUB_REF")
+        && let Some(version) = reference.strip_prefix("refs/tags/ci-v")
+    {
+        ensure!(
+            version == env!("CARGO_PKG_VERSION"),
+            "release tag must match Cargo package version"
+        );
+    }
     ensure!(
         binary.is_file(),
         "binary does not exist: {}",

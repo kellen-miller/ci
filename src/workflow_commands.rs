@@ -122,20 +122,7 @@ pub fn run(operation: &str) -> Result<()> {
                     continue;
                 }
 
-                let suffix = if platform.is_empty() {
-                    "default".into()
-                } else {
-                    platform
-                        .chars()
-                        .map(|c| {
-                            if c.is_ascii_alphanumeric() || "_.-".contains(c) {
-                                c
-                            } else {
-                                '-'
-                            }
-                        })
-                        .collect()
-                };
+                let suffix = platform_suffix(platform);
                 ensure!(
                     !include.iter().any(|item| item.suffix == suffix),
                     "platform artifact names collide"
@@ -280,4 +267,21 @@ fn valid_digest(value: &str) -> bool {
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     })
+}
+
+fn platform_suffix(platform: &str) -> String {
+    if platform.is_empty() {
+        return "default".into();
+    }
+
+    platform
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || "_.-".contains(character) {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect()
 }

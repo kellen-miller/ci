@@ -9,10 +9,8 @@ const {configFile, extraPlugins, ...defaults} = JSON.parse(readFileSync(process.
 const config = configFile ? (await import(pathToFileURL(configFile).href)).default : {};
 const settings = {
   ...config,
-  plugins: [...(config.plugins || defaults.plugins).map(plugin => {
-    const [name, options] = Array.isArray(plugin) ? plugin : [plugin];
-    return [require.resolve(name), options];
-  }), ...extraPlugins.map(name => require.resolve(name))],
+  plugins: [...(config.plugins || defaults.plugins.map(([name, options]) => [require.resolve(name), options])),
+    ...extraPlugins.map(name => require.resolve(name))],
   branches: defaults.branches,
   tagFormat: defaults.tagFormat,
   dryRun: process.env.CI_RELEASE_DRY_RUN === "true",

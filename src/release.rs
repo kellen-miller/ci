@@ -26,16 +26,19 @@ struct CommitFilter {
 /// Returns validation, file, network, or child-process failures to the caller.
 pub fn scope_paths(value: &str) -> Result<Vec<String>> {
     let mut paths = Vec::new();
+    let relative_prefix = Regex::new(r"^\./+")?;
     for path in value
         .split([',', '\n'])
         .map(str::trim)
         .filter(|path| !path.is_empty())
     {
         let normalized = path.replace('\\', "/");
-        let normalized = normalized
-            .strip_prefix("./")
-            .unwrap_or(&normalized)
-            .trim_end_matches('/');
+        ensure!(
+            !normalized.starts_with('/'),
+            "Release commit paths must be repository-relative: {path}"
+        );
+        let normalized = relative_prefix.replace(&normalized, "");
+        let normalized = normalized.trim_end_matches('/');
         let normalized = if normalized.is_empty() {
             "."
         } else {
