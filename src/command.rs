@@ -17,6 +17,9 @@ impl fmt::Display for Failure {
 impl std::error::Error for Failure {}
 
 /// Execute a child with inherited output, preserving failure status.
+///
+/// # Errors
+/// Returns validation, file, network, or child-process failures to the caller.
 pub fn run(command: &mut Command) -> Result<()> {
     let status = command
         .status()
@@ -29,6 +32,9 @@ pub fn run(command: &mut Command) -> Result<()> {
 }
 
 /// Capture raw stdout, retaining NUL-delimited filenames without decoding.
+///
+/// # Errors
+/// Returns validation, file, network, or child-process failures to the caller.
 pub fn capture_bytes(command: &mut Command) -> Result<Vec<u8>> {
     let output = command
         .output()
@@ -42,6 +48,9 @@ pub fn capture_bytes(command: &mut Command) -> Result<Vec<u8>> {
 }
 
 /// Capture UTF-8 child output; malformed data fails rather than being rewritten.
+///
+/// # Errors
+/// Returns validation, file, network, or child-process failures to the caller.
 pub fn capture(command: &mut Command) -> Result<String> {
     String::from_utf8(capture_bytes(command)?).context("child output is not UTF-8")
 }
