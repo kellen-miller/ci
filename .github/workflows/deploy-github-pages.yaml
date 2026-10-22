@@ -51,7 +51,7 @@ jobs:
         with:
           persist-credentials: false
       - id: setup
-        uses: kellen-miller/ci/.github/actions/setup-node@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        uses: kellen-miller/ci/.github/actions/setup-node@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           working-directory: ${{ inputs.working-directory }}
           package-manager: ${{ inputs.package-manager }}
@@ -65,7 +65,7 @@ jobs:
           SCRIPT: ${{ inputs.build-script }}
           BASE_PATH: /${{ github.event.repository.name }}
           BUILD_ENV: ${{ inputs.build-env }}
-        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           operation: pages-build
           working-directory: ${{ inputs.working-directory }}

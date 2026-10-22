@@ -91,7 +91,7 @@ jobs:
         name: Resolve platform matrix
         env:
           PLATFORMS: ${{ inputs.platforms }}
-        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           operation: platform-matrix
   publish-platform-image:
@@ -115,7 +115,7 @@ jobs:
           persist-credentials: false
       - name: Authenticate with Google Cloud
         if: ${{ inputs.push }}
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
@@ -134,7 +134,7 @@ jobs:
         run: test -e "${BUILD_ARTIFACT_CHECK_PATH}"
       - id: publish
         name: Build image
-        uses: kellen-miller/ci/.github/actions/docker-publish-core@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        uses: kellen-miller/ci/.github/actions/docker-publish-core@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           image: ${{ env.IMAGE }}
           context: ${{ inputs.context }}
@@ -156,7 +156,7 @@ jobs:
         if: ${{ inputs.push }}
         env:
           DIGEST: ${{ steps.publish.outputs.digest }}
-        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           operation: digest-artifact
       - name: Upload digest artifact
@@ -187,7 +187,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Authenticate with Google Cloud
-        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@6a0d4f6718ed6cea356a99b7b7460244a42243bd
+        uses: kellen-miller/ci/.github/actions/gcp-gar-auth@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           project-id: ${{ inputs.project-id }}
           workload-identity-provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
@@ -215,7 +215,7 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST_DIR: ${{ runner.temp }}/digests
-        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           operation: docker-manifest
       - name: Install cosign
@@ -232,7 +232,7 @@ jobs:
           SHA: ${{ github.sha }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
-        uses: kellen-miller/ci/.github/actions/run@de4df0c21a7c46927ce268d51075d355dcca9232
+        uses: kellen-miller/ci/.github/actions/run@f409e67bb73d3ea10c7c3853984e8701f43fc3d7
         with:
           operation: provenance
       - name: Attest image digest
