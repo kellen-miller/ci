@@ -52,6 +52,7 @@ pub fn run() -> Result<()> {
     let selected = env::var("CHECKS").unwrap_or_else(|_| "fmt clippy test build".into());
     let all_features = env::var("ALL_FEATURES").unwrap_or_else(|_| "true".into());
     let profile = env::var("BUILD_PROFILE").unwrap_or_else(|_| "dev".into());
+    let build_targets = env::var("BUILD_TARGETS").unwrap_or_else(|_| "all".into());
     let policy = env::var("POLICY_DIRECTORY").unwrap_or_default();
     for value in [
         &setup,
@@ -59,6 +60,7 @@ pub fn run() -> Result<()> {
         &selected,
         &all_features,
         &profile,
+        &build_targets,
         &policy,
     ] {
         ensure!(
@@ -79,6 +81,10 @@ pub fn run() -> Result<()> {
     ensure!(
         matches!(profile.as_str(), "dev" | "release"),
         "build-profile must be dev or release"
+    );
+    ensure!(
+        matches!(build_targets.as_str(), "all" | "bins"),
+        "build-targets must be all or bins"
     );
     // Bash's explicit space-only IFS rejects tabs inside a check name.
     let checks: Vec<&str> = selected
@@ -233,7 +239,12 @@ pub fn run() -> Result<()> {
             "build" => {
                 cargo
                     .args(&workspace)
-                    .args(["--all-targets", "--profile", &profile]);
+                    .arg(if build_targets == "bins" {
+                        "--bins"
+                    } else {
+                        "--all-targets"
+                    })
+                    .args(["--profile", &profile]);
             }
 
             _ => unreachable!("validated check"),

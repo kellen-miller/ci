@@ -143,6 +143,27 @@ fn ordered_selected_checks_use_release_and_default_features() {
 }
 
 #[test]
+fn binary_build_selection_preserves_full_lint_and_test_scope() {
+    let fixture = Fixture::new();
+    let (output, calls) = fixture.run(&[("BUILD_TARGETS", "bins"), ("BUILD_PROFILE", "release")]);
+    successful(&output);
+    assert!(calls[2].argv.iter().any(|arg| arg == "--all-targets"));
+    assert!(calls[3].argv.iter().any(|arg| arg == "--all-targets"));
+    assert_eq!(
+        calls[6].argv,
+        [
+            "build",
+            "--locked",
+            "--workspace",
+            "--all-features",
+            "--bins",
+            "--profile",
+            "release"
+        ]
+    );
+}
+
+#[test]
 fn custom_policy_is_workspace_relative_and_prevalidated() {
     let fixture = Fixture::new();
     let policy = fixture.project.join("local policy");
@@ -234,6 +255,17 @@ fn invalid_inputs_fail_before_commands_and_shell_text_stays_literal() {
                 "dev release",
                 "dev\r",
                 ";touch pwned",
+            ],
+        ),
+        (
+            "BUILD_TARGETS",
+            vec![
+                "",
+                "bin",
+                "all bins",
+                "bins\n",
+                "--all-targets",
+                "$(touch pwned)",
             ],
         ),
         (

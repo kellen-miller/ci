@@ -42,6 +42,7 @@ pub(crate) fn process(project: &Path) -> Command {
         .env("CHECKS", "fmt clippy test build")
         .env("ALL_FEATURES", "true")
         .env("BUILD_PROFILE", "dev")
+        .env_remove("BUILD_TARGETS")
         .env("POLICY_DIRECTORY", "")
         .env("CI_ROOT", ROOT)
         .env_remove("CLIPPY_CONF_DIR");
