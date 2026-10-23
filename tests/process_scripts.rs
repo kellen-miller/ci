@@ -6,18 +6,9 @@ use std::fs;
 #[test]
 fn script_launch_preserves_literal_arguments_spaces_and_failure_status() {
     let temporary = tempfile::tempdir().unwrap();
-    let script = temporary.path().join("tool with spaces");
-    // A shell entry point is the external interface being qualified here.
-    fs::write(
-        &script,
-        "#!/usr/bin/env bash\nif [[ $1 == --fail ]]; then exit 33; fi\nprintf '%s\\n' \"$@\"\n",
-    )
-    .unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
-    }
+    // Keep the executed inode immutable while parallel tests spawn child processes.
+    let script =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tool with spaces.sh");
 
     let marker = temporary.path().join("must-not-exist");
     let argument = format!("$(touch {}) ; \"quoted value\" & %PATH%", marker.display());

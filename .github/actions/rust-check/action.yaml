@@ -19,6 +19,9 @@ inputs:
   build-profile:
     description: Cargo build profile; dev or release
     default: dev
+  build-targets:
+    description: Build all targets or only deployable binaries; all or bins
+    default: all
   cache-key:
     description: Optional additional cache key for consumer matrices
     default: ''
@@ -44,5 +47,6 @@ runs:
         CHECKS: ${{ inputs.checks }}
         ALL_FEATURES: ${{ inputs.all-features }}
         BUILD_PROFILE: ${{ inputs.build-profile }}
+        BUILD_TARGETS: ${{ inputs.build-targets }}
         POLICY_DIRECTORY: ${{ inputs.policy-directory }}
       run: bash "$GITHUB_ACTION_PATH/../run.sh" rust-check

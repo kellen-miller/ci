@@ -216,6 +216,7 @@ After checkout, use `.github/actions/rust-check` directly in the consumer's job:
 | `checks` | `fmt clippy test build` | Space-separated checks in execution order; no empty, unknown or duplicate selections |
 | `all-features` | `'true'` | Add `--all-features` to Clippy, tests and build; `'false'` preserves Cargo's default feature selection |
 | `build-profile` | `dev` | Build profile, either `dev` or `release`; does not change the Clippy/test profile |
+| `build-targets` | `all` | `bins` builds deployable binaries without compiling unused release test executables; Clippy and tests still cover all targets |
 | `cache-key` | empty | Additional upstream cache key for consumer matrices |
 | `policy-directory` | empty | Bundled Rust policy; an explicit replacement directory resolves relative to `working-directory` |
 
