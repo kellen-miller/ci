@@ -1,11 +1,11 @@
-name: GitHub Actions lint
+name: GitHub Actions validation
 on:
   workflow_call:
     inputs:
       check-name:
         description: Display name of the validation check.
         type: string
-        default: lint
+        default: Workflow validation
       allow-pull-request-target:
         description: Explicitly allow an independently reviewed privileged PR trigger.
         type: boolean

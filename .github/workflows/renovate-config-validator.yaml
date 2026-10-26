@@ -1,11 +1,11 @@
-name: Renovate Config Validator
+name: Renovate config validation
 on:
   workflow_call:
     inputs:
       check-name:
         description: Display name of the validation check.
         type: string
-        default: Renovate Config Validator
+        default: Config validation
       config-file:
         description: Path to the Renovate config file to validate.
         type: string

@@ -6,6 +6,7 @@
     "minTokens": 80,
     "threshold": 5,
     "ignore": [
+        "**/.git/**",
         "**/node_modules/**",
         "**/.svelte-kit/**",
         "**/build/**",
@@ -16,5 +17,6 @@
         "**/.worktrees/**"
     ],
     "gitignore": true,
-    "mode": "mild"
+    "mode": "mild",
+    "failOnEmpty": true
 }
