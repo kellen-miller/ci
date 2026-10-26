@@ -2,6 +2,10 @@ name: Renovate Config Validator
 on:
   workflow_call:
     inputs:
+      check-name:
+        description: Display name of the validation check.
+        type: string
+        default: Renovate Config Validator
       config-file:
         description: Path to the Renovate config file to validate.
         type: string
@@ -22,7 +26,7 @@ permissions:
   contents: read
 jobs:
   validate:
-    name: Renovate Config Validator
+    name: ${{ inputs.check-name }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

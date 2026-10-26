@@ -1,7 +1,7 @@
 //! Small CI argument resolvers and tool runners.
 
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail, ensure};
@@ -24,17 +24,30 @@ pub fn run(operation: &str) -> Result<()> {
 }
 
 fn code_duplication() -> Result<()> {
-    let config = env::var("CPD_CONFIG")
-        .ok()
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| ".jscpd.json".to_owned());
+    let local = PathBuf::from(".jscpd.json");
+    let config = if let Some(explicit) = env::var_os("CPD_CONFIG").filter(|value| !value.is_empty())
+    {
+        PathBuf::from(explicit)
+    } else if local
+        .try_exists()
+        .context("Cannot inspect repository CPD configuration")?
+    {
+        local
+    } else {
+        crate::repository::root().join("config/jscpd.json")
+    };
     ensure!(
-        Path::new(&config).is_file(),
-        "Config file does not exist: {config}"
+        config.is_file(),
+        "Config file does not exist: {}",
+        config.display()
     );
+    println!("CPD configuration: {}", config.display());
+    let config = config
+        .to_str()
+        .context("CPD configuration path is not UTF-8")?;
     let mut args = vec![
         "--config".to_owned(),
-        config.clone(),
+        config.to_owned(),
         "--no-tips".to_owned(),
         "--no-colors".to_owned(),
     ];
@@ -63,7 +76,7 @@ fn code_duplication() -> Result<()> {
                 .unwrap_or(1);
             if let Err(report_error) = command::run(Command::new("cpd").args([
                 "--config",
-                &config,
+                config,
                 "--no-tips",
                 "--no-colors",
                 "--reporters",

@@ -41,6 +41,9 @@ where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
+The GitHub Actions and Renovate validation workflows accept `check-name` to
+make consumer check labels descriptive. Defaults preserve existing check names.
+
 On pull requests, the Renovate validator skips Node setup and validation unless
 the selected `config-file`, `default.json`, or a caller workflow changes. It
 compares the PR head against its merge base, including deletions and renames.
@@ -99,7 +102,11 @@ every transitive dependency.
   pnpm security-policy overrides are opt-in; empty inputs preserve repository
   settings. `format-script` is opt-in. `check-script` and `lint-script` default to
   `check` and `lint`; set either to an empty string to skip it.
-- Duplication checking requires an existing configuration. It preserves configured
+- Duplication checking uses an explicit `config` input first, then the consumer's
+  `.jscpd.json`, then bundled `config/jscpd.json`. It scans the consumer working
+  directory and prints the selected config path. Missing explicit configs fail
+  instead of falling back. The shared defaults use 8 lines, 80 tokens, a 5%
+  threshold, mild mode, Git ignores, and generic build/cache exclusions. It preserves configured
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
   report never replaces the original failure status. The Rust crate and the npm
   package named `jscpd` are different installations.
@@ -150,7 +157,7 @@ and `kubernetes-version` when reproducibility is required.
 | `setup-node` | Runtime/package-manager detection, cache and frozen install |
 | `helm-lint-charts` | Chart dependency build, lint/render and optional schema validation |
 | `validate-workflow-security` | Structured action reference and credential policy checks |
-| `code-duplication` | Rust cpd with caller configuration and preserved failure status |
+| `code-duplication` | Rust cpd with shared defaults, local overrides and preserved failure status |
 | `docker-publish-core` | Buildx/QEMU, metadata, registry login, cache, build/push and provenance |
 | `playwright-setup` | Installed-version/architecture browser cache and OS dependency setup |
 | `select-runner` | Prefer ready self-hosted capacity, otherwise select a hosted runner |

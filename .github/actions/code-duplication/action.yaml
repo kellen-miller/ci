@@ -1,12 +1,12 @@
 name: Code duplication
-description: Honor repository configuration with the Rust jscpd crate's cpd executable
+description: Run Rust cpd with shared defaults or a repository configuration
 inputs:
   working-directory:
     description: Directory containing the scan configuration
     default: .
   config:
-    description: Configuration path relative to working-directory
-    default: .jscpd.json
+    description: Optional config path; otherwise use local .jscpd.json or the shared defaults
+    default: ''
   version:
     description: Rust jscpd crate version
     default: '5.4.0'

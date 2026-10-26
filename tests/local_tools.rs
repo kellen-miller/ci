@@ -546,6 +546,93 @@ fn empty_duplication_config_uses_the_default_config() {
 }
 
 #[test]
+fn duplication_config_prefers_repository_override_over_shared_defaults() {
+    let project = TempDir::new().unwrap();
+    let shared = TempDir::with_prefix("shared cpd ").unwrap();
+    fs::create_dir(shared.path().join("config")).unwrap();
+    let defaults = shared.path().join("config/jscpd.json");
+    fs::write(&defaults, "{\"threshold\":5}\n").unwrap();
+    let _binary = recorder(&project, "cpd");
+    let log = project.path().join("calls");
+    let path = format!("{}:{}", project.path().display(), env::var("PATH").unwrap());
+    for local in [false, true] {
+        if local {
+            fs::write(project.path().join(".jscpd.json"), "{\"threshold\":1}\n").unwrap();
+            fs::remove_file(&log).unwrap();
+        }
+
+        let output = invoke(
+            "cpd",
+            project.path(),
+            &[
+                ("PATH", &path),
+                ("CI_ROOT", shared.path().to_str().unwrap()),
+                ("CPD_CONFIG", ""),
+                ("RECORDER_LOG", log.to_str().unwrap()),
+            ],
+        );
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let expected = if local {
+            ".jscpd.json"
+        } else {
+            defaults.to_str().unwrap()
+        };
+        assert_eq!(
+            fs::read_to_string(&log).unwrap().trim(),
+            format!("--config\t{expected}\t--no-tips\t--no-colors")
+        );
+    }
+
+    assert_eq!(fs::read_to_string(defaults).unwrap(), "{\"threshold\":5}\n");
+    assert_eq!(
+        fs::read_to_string(project.path().join(".jscpd.json")).unwrap(),
+        "{\"threshold\":1}\n"
+    );
+}
+
+#[test]
+fn explicit_missing_duplication_config_does_not_fall_back() {
+    let project = TempDir::new().unwrap();
+    fs::write(project.path().join(".jscpd.json"), "{}\n").unwrap();
+    let _binary = recorder(&project, "cpd");
+    let log = project.path().join("calls");
+    let output = invoke(
+        "cpd",
+        project.path(),
+        &[
+            ("PATH", project.path().to_str().unwrap()),
+            ("CPD_CONFIG", "missing.json"),
+            ("RECORDER_LOG", log.to_str().unwrap()),
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("Config file does not exist: missing.json")
+    );
+    assert!(!log.exists());
+}
+
+#[test]
+fn missing_shared_duplication_config_fails_before_scanning() {
+    let project = TempDir::new().unwrap();
+    let output = invoke(
+        "cpd",
+        project.path(),
+        &[
+            ("CPD_CONFIG", ""),
+            ("CI_ROOT", project.path().to_str().unwrap()),
+        ],
+    );
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("config/jscpd.json"));
+}
+
+#[test]
 fn helm_renders_default_and_matching_values_variants() {
     let project = TempDir::new().unwrap();
     let recorder_path = recorder(&project, "recorder");

@@ -1,0 +1,20 @@
+{
+    "reporters": [
+        "threshold"
+    ],
+    "minLines": 8,
+    "minTokens": 80,
+    "threshold": 5,
+    "ignore": [
+        "**/node_modules/**",
+        "**/.svelte-kit/**",
+        "**/build/**",
+        "**/coverage/**",
+        "**/.data/**",
+        "**/target/**",
+        "**/.agent/**",
+        "**/.worktrees/**"
+    ],
+    "gitignore": true,
+    "mode": "mild"
+}
