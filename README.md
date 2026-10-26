@@ -41,8 +41,11 @@ where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
-The GitHub Actions and Renovate validation workflows accept `check-name` to
-make consumer check labels descriptive. Defaults preserve existing check names.
+The GitHub Actions and Renovate validation jobs default to `Workflow validation`
+and `Config validation`. Name caller jobs `GitHub Actions` and `Renovate` so
+GitHub displays their scopes clearly. `check-name` supports intentionally
+distinct checks; callers using the standard names need no override. Required
+check mappings must follow the resulting caller/job names when upgrading pins.
 
 On pull requests, the Renovate validator skips Node setup and validation unless
 the selected `config-file`, `default.json`, or a caller workflow changes. It
@@ -106,7 +109,8 @@ every transitive dependency.
   `.jscpd.json`, then bundled `config/jscpd.json`. It scans the consumer working
   directory and prints the selected config path. Missing explicit configs fail
   instead of falling back. The shared defaults use 8 lines, 80 tokens, a 5%
-  threshold, mild mode, Git ignores, and generic build/cache exclusions. It preserves configured
+  threshold, mild mode, Git ignores, and generic VCS/build/cache exclusions.
+  Empty scans fail. It preserves configured
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
   report never replaces the original failure status. The Rust crate and the npm
   package named `jscpd` are different installations.
