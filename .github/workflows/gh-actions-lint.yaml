@@ -2,6 +2,10 @@ name: GitHub Actions lint
 on:
   workflow_call:
     inputs:
+      check-name:
+        description: Display name of the validation check.
+        type: string
+        default: lint
       allow-pull-request-target:
         description: Explicitly allow an independently reviewed privileged PR trigger.
         type: boolean
@@ -14,6 +18,7 @@ permissions:
   contents: read
 jobs:
   lint:
+    name: ${{ inputs.check-name }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
