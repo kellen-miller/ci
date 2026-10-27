@@ -1,5 +1,5 @@
 name: Set Up Playwright
-description: Install Playwright browsers with caching keyed on the installed Playwright version and browser set.
+description: Install Playwright browsers with caching by version, browser set, and operating-system distribution.
 inputs:
   working-directory:
     description: Working directory where Playwright is installed as a dependency.
@@ -31,12 +31,20 @@ runs:
         RUNNER_OS: ${{ runner.os }}
         PLAYWRIGHT_VERSION: ${{ inputs.version }}
         RUNNER_ARCH: ${{ runner.arch }}
-      run: bash "$GITHUB_ACTION_PATH/../run.sh" playwright-version
+      run: |
+        bash "$GITHUB_ACTION_PATH/../run.sh" playwright-version
+        if [[ "$RUNNER_OS" == Linux ]]; then
+          . /etc/os-release
+          cache_image="${ID:?}-${VERSION_ID:?}"
+        else
+          cache_image="${ImageOS:-$RUNNER_OS}"
+        fi
+        printf 'cache-image=%s\n' "$cache_image" >> "$GITHUB_OUTPUT"
     - id: cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: ${{ steps.resolve.outputs.cache-path }}
-        key: ${{ steps.resolve.outputs.cache-key }}
+        key: ${{ steps.resolve.outputs.cache-key }}-${{ steps.resolve.outputs.cache-image }}
     - name: Install browsers (cache miss)
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
