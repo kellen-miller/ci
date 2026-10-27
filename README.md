@@ -177,7 +177,7 @@ Use composite actions directly when combining checks in one job. Each action
 lives under `.github/actions/<name>/action.yaml`.
 
 `select-runner` runs in a GitHub-hosted selection job. Pass `preferred-runner`,
-`fallback-runner` (default `ubuntu-24.04`) and a runner-status `token`; expose its
+`fallback-runner` (default `ubuntu-latest`) and a runner-status `token`; expose its
 `runner` output as a job output and use it in dependent jobs' `runs-on`.
 Runner lookup requires repository Administration read permission; the standard
 `GITHUB_TOKEN` does not provide it. Without a suitable status token, lookup errors
