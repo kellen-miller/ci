@@ -89,7 +89,7 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust) }}
         with:
-          version: v4.3.0
+          version: v4.3.1
       - name: Install ShellCheck and yamllint
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).shell || fromJSON(steps.changes.outputs.changes).workflows || fromJSON(steps.changes.outputs.changes).yaml) }}
         run: |
