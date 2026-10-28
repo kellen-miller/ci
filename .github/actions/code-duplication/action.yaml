@@ -1,5 +1,5 @@
 name: Code duplication
-description: Run Rust cpd with shared defaults or a repository configuration
+description: Run the official JSCPD action with shared defaults and enforced failure status
 inputs:
   working-directory:
     description: Directory containing the scan configuration
@@ -8,7 +8,7 @@ inputs:
     description: Optional config path; otherwise use local .jscpd.json or the shared defaults
     default: ''
   version:
-    description: Rust jscpd crate version
+    description: JSCPD release version downloaded by the official action
     default: '5.4.0'
   threshold:
     description: Optional threshold override; empty preserves configuration
@@ -19,20 +19,33 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
       with:
-        toolchain: stable
-        rustflags: ''
-    - name: Install cpd
-      shell: bash
-      env:
-        CPD_VERSION: ${{ inputs.version }}
-      run: cargo install jscpd --version "$CPD_VERSION" --locked
-    - name: Check duplication
+        node-version: '24'
+        package-manager-cache: false
+    - name: Resolve duplication configuration
+      id: config
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         CPD_CONFIG: ${{ inputs.config }}
-        CPD_THRESHOLD: ${{ inputs.threshold }}
         CPD_REPORTERS: ${{ inputs.reporters }}
-      run: bash "$GITHUB_ACTION_PATH/../run.sh" code-duplication
+      run: node "$GITHUB_ACTION_PATH/config.mjs"
+    - name: Check duplication
+      id: scan
+      uses: kucherenko/jscpd@b6f832c62cf02b574ea9cf24e013cfeb17366a35 # v5.4.0
+      with:
+        version: ${{ inputs.version }}
+        path: ''
+        config: ${{ steps.config.outputs.config }}
+        install-prefix: ${{ steps.config.outputs.install-prefix }}
+        reporters: ${{ steps.config.outputs.reporters }}
+        output: ${{ steps.config.outputs.output }}
+        threshold: ${{ inputs.threshold }}
+        extra-args: --no-tips --no-colors
+        upload-sarif: 'false'
+    - name: Enforce duplication result
+      shell: bash
+      env:
+        CPD_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "$CPD_EXIT_CODE"
