@@ -112,8 +112,9 @@ every transitive dependency.
   threshold, mild mode, Git ignores, and generic VCS/build/cache exclusions.
   Empty scans fail. It preserves configured
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
-  report never replaces the original failure status. The Rust crate and the npm
-  package named `jscpd` are different installations.
+  report never replaces the original failure status. The action installs the
+  version-pinned npm `cpd` package, which downloads the prebuilt Rust executable
+  for the runner. It sets up Node 24; no Rust toolchain or compilation is needed.
 - The retained actionlint integration uses `reporter: local`, `filter_mode: nofilter`
   and `fail_level: any`. When using upstream Reviewdog actions directly, apply
   these settings explicitly to fail on findings throughout the repository.

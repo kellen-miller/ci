@@ -8,7 +8,7 @@ inputs:
     description: Optional config path; otherwise use local .jscpd.json or the shared defaults
     default: ''
   version:
-    description: Rust jscpd crate version
+    description: Prebuilt cpd npm package version
     default: '5.4.0'
   threshold:
     description: Optional threshold override; empty preserves configuration
@@ -19,15 +19,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
       with:
-        toolchain: stable
-        rustflags: ''
+        node-version: '24'
+        package-manager-cache: false
     - name: Install cpd
       shell: bash
       env:
         CPD_VERSION: ${{ inputs.version }}
-      run: cargo install jscpd --version "$CPD_VERSION" --locked
+      run: npm install --global --ignore-scripts --no-audit --no-fund "cpd@$CPD_VERSION"
     - name: Check duplication
       shell: bash
       working-directory: ${{ inputs.working-directory }}
