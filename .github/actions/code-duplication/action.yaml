@@ -33,7 +33,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/config.mjs"
     - name: Check duplication
       id: scan
-      uses: kucherenko/jscpd@b6f832c62cf02b574ea9cf24e013cfeb17366a35 # v5.4.0
+      uses: kucherenko/jscpd@db415b5d7cc34d72a324fe5eae2147646dc3558b # v5.4.2
       with:
         version: ${{ inputs.version }}
         path: ''
