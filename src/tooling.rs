@@ -61,20 +61,20 @@ fn code_duplication() -> Result<()> {
         && !reporters.is_empty()
     {
         return command::run(
-            command::script("cpd")
+            Command::new("cpd")
                 .args(args)
                 .args(["--reporters", &reporters]),
         );
     }
 
-    match command::run(command::script("cpd").args(&args)) {
+    match command::run(Command::new("cpd").args(&args)) {
         Ok(()) => Ok(()),
         Err(error) => {
             let failure = error
                 .downcast_ref::<command::Failure>()
                 .map(|failure| failure.0)
                 .unwrap_or(1);
-            if let Err(report_error) = command::run(command::script("cpd").args([
+            if let Err(report_error) = command::run(Command::new("cpd").args([
                 "--config",
                 config,
                 "--no-tips",

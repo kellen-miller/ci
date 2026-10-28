@@ -112,9 +112,14 @@ every transitive dependency.
   threshold, mild mode, Git ignores, and generic VCS/build/cache exclusions.
   Empty scans fail. It preserves configured
   paths, exclusions and threshold; optional overrides are explicit. A diagnostic
-  report never replaces the original failure status. The action installs the
-  version-pinned npm `cpd` package, which downloads the prebuilt Rust executable
-  for the runner. It sets up Node 24; no Rust toolchain or compilation is needed.
+  report never replaces the original failure status. A thin wrapper delegates
+  installation and scanning to the SHA-pinned official `kucherenko/jscpd` action,
+  then enforces its `exit-code` output. The selected release defaults to 5.4.0.
+  Upstream downloads the prebuilt executable; no Rust toolchain or compilation
+  is needed. Node 24 prepares the config and runs upstream's report parser.
+  Configured reporters are retained; AI diagnostics accompany the scan unless
+  `reporters` is explicitly set. Upstream also adds a JSON report for its outputs.
+  SARIF uploads are disabled.
 - The retained actionlint integration uses `reporter: local`, `filter_mode: nofilter`
   and `fail_level: any`. When using upstream Reviewdog actions directly, apply
   these settings explicitly to fail on findings throughout the repository.
