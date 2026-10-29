@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: kellen-miller/ci
-          ref: 9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
+          ref: 38abb7ba36139591bec0fa9af758aca9af357495
           path: .pr-artifact-ci
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .pr-artifact-ci/target
-          key: pr-artifacts-${{ runner.os }}-9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
+          key: pr-artifacts-${{ runner.os }}-38abb7ba36139591bec0fa9af758aca9af357495
       - id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
