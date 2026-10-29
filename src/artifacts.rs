@@ -28,6 +28,7 @@ struct Run {
 #[derive(Clone, Deserialize)]
 struct HeadRepository {
     id: u64,
+    full_name: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -95,9 +96,18 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
                 continue;
             };
             let mut run: Run = serde_json::from_value(response)?;
-            if run.event == "pull_request" && run.pull_requests.is_empty() {
+            if run.event == "pull_request"
+                && run.pull_requests.is_empty()
+                && let (Some(head), Some(branch)) = (&run.head_repository, &run.head_branch)
+            {
+                let owner = head
+                    .full_name
+                    .split_once('/')
+                    .context("invalid head repository")?
+                    .0;
+                let head = github::encode(&format!("{owner}:{branch}"));
                 let pulls = github::api(
-                    &format!("repos/{repo}/commits/{}/pulls?per_page=100", run.head_sha),
+                    &format!("repos/{repo}/pulls?state=all&head={head}&per_page=100"),
                     "GET",
                     None,
                     true,
@@ -301,7 +311,7 @@ fn retained_runs(
     latest
 }
 
-// GitHub often omits pull_requests on completed runs after their branch is deleted.
+// Branch and lifetime identify the target PR, including stacked PR merge commits.
 fn associated_pr(run: &Run, pr: &Value, repo: &str) -> bool {
     pr["base"]["repo"]["full_name"].as_str() == Some(repo)
         && pr["head"]["ref"].as_str() == run.head_branch.as_deref()
@@ -349,7 +359,7 @@ mod tests {
             "event": "pull_request", "status": "completed", "conclusion": conclusion,
             "pull_requests": [{"number": pr}], "run_started_at": "2026-10-29T12:00:00Z",
             "created_at": "2026-10-29T12:00:00Z", "head_sha": "abc",
-            "head_branch": "feature", "head_repository": {"id": 42}
+            "head_branch": "feature", "head_repository": {"id": 42, "full_name": "example/project"}
         }))
         .unwrap()
     }

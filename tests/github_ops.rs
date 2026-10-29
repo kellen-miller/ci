@@ -779,7 +779,7 @@ fn pr_artifact_run(id: u64, conclusion: &str) -> Value {
     json!({"id": id, "workflow_id": 10, "run_number": id, "event": "pull_request",
         "status": "completed", "conclusion": conclusion, "pull_requests": [{"number": 7}],
         "created_at": "2026-10-29T12:00:00Z", "head_sha": "abc",
-        "head_branch": "feature", "head_repository": {"id": 42}})
+        "head_branch": "feature", "head_repository": {"id": 42, "full_name": "example/project"}})
 }
 
 fn pr_build_fixture(sandbox: &Sandbox, include_image: bool) {
@@ -1036,4 +1036,47 @@ fn reuse_rejects_a_marker_forged_by_different_producer_inputs() {
             .unwrap()
             .contains("build=true")
     );
+}
+
+#[test]
+fn cleanup_resolves_the_target_pr_from_its_branch_after_a_stacked_merge() {
+    let sandbox = Sandbox::new();
+    let artifacts: Vec<_> = [1, 2]
+        .into_iter()
+        .map(|id| json!({"id":id,"name":"package","expired":false,"workflow_run":{"id":id}}))
+        .collect();
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=1",
+        0,
+        json!({"artifacts":artifacts}),
+    );
+    for id in [1, 2] {
+        let mut run = pr_artifact_run(id, "success");
+        run["pull_requests"] = json!([]);
+        sandbox.response(
+            "GET",
+            &format!("repos/example/project/actions/runs/{id}"),
+            0,
+            run,
+        );
+    }
+
+    sandbox.response("GET", "repos/example/project/pulls?state=all&head=example%3Afeature&per_page=100", 0,
+        json!([[{"number":7,"created_at":"2026-10-28T12:00:00Z","closed_at":"2026-10-30T12:00:00Z",
+            "head":{"ref":"feature","repo":{"id":42}},"base":{"repo":{"full_name":"example/project"}}}]]));
+    sandbox.response(
+        "DELETE",
+        "repos/example/project/actions/artifacts/1",
+        0,
+        Value::Null,
+    );
+    successful(sandbox.command("pr-artifact-cleanup").output().unwrap());
+    let deleted: Vec<_> = sandbox
+        .calls()
+        .into_iter()
+        .filter(|call| call.method == "DELETE")
+        .map(|call| call.endpoint)
+        .collect();
+    assert_eq!(deleted, ["repos/example/project/actions/artifacts/1"]);
 }
