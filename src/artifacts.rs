@@ -4,8 +4,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::env;
 
 use anyhow::{Context, Result, ensure};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::{github, github_output};
 
@@ -45,6 +46,13 @@ struct Artifact {
 #[derive(Clone, Deserialize)]
 struct ArtifactRun {
     id: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+struct SourceEntry {
+    path: String,
+    mode: String,
+    sha: String,
 }
 
 /// Select an unchanged build or remove superseded PR artifacts.
@@ -131,7 +139,14 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
         let tree = commit["tree"]["sha"]
             .as_str()
             .context("missing source tree")?;
-        let source = format!("pr-source-{tree}");
+        let tree = github::api(
+            &format!("repos/{repo}/git/trees/{tree}?recursive=1"),
+            "GET",
+            None,
+            false,
+        )?;
+        let paths: Vec<String> = serde_json::from_str(&env::var("SOURCE_PATHS")?)?;
+        let source = source_marker(&tree, &paths)?;
         let mut required: Vec<String> = serde_json::from_str(&env::var("REQUIRED_ARTIFACTS")?)?;
         ensure!(!required.is_empty(), "declare the complete artifact set");
         let reusable = number.and_then(|number| {
@@ -206,6 +221,33 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
     Ok(())
 }
 
+fn source_marker(tree: &Value, paths: &[String]) -> Result<String> {
+    ensure!(tree["truncated"] == false, "source tree must be complete");
+    ensure!(!paths.is_empty(), "declare the build inputs");
+    let patterns = paths
+        .iter()
+        .map(|path| glob::Pattern::new(path))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut entries = Vec::new();
+    for entry in tree["tree"].as_array().context("missing source entries")? {
+        if entry["type"] == "tree" {
+            continue;
+        }
+
+        let entry: SourceEntry = serde_json::from_value(entry.clone())?;
+        if patterns.iter().any(|pattern| pattern.matches(&entry.path)) {
+            entries.push(entry);
+        }
+    }
+
+    ensure!(!entries.is_empty(), "no build inputs matched");
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut digest = Sha256::new();
+    digest.update(b"pr-artifact-source-v1\0");
+    digest.update(serde_json::to_vec(&(paths, entries))?);
+    Ok(format!("pr-source-{}", hex::encode(digest.finalize())))
+}
+
 fn retained_runs(
     runs: &BTreeMap<u64, Run>,
     artifacts: &[Artifact],
@@ -258,6 +300,27 @@ fn associated_pr(run: &Run, pr: &Value, repo: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn source_identity_ignores_docs_but_tracks_code_modes_and_deletions() {
+        let mut tree = json!({"truncated": false, "tree": [
+            {"path":"src/main.rs","mode":"100644","sha":"code","type":"blob"},
+            {"path":"README.md","mode":"100644","sha":"docs","type":"blob"}
+        ]});
+        let paths = vec!["src/**".into(), "Cargo.toml".into()];
+        let original = source_marker(&tree, &paths).unwrap();
+        tree["tree"][1]["sha"] = json!("new-docs");
+        assert_eq!(source_marker(&tree, &paths).unwrap(), original);
+        tree["tree"][0]["mode"] = json!("100755");
+        assert_ne!(source_marker(&tree, &paths).unwrap(), original);
+        tree["tree"][0]["mode"] = json!("100644");
+        tree["tree"][0]["sha"] = json!("new-code");
+        assert_ne!(source_marker(&tree, &paths).unwrap(), original);
+        tree["tree"][0]["path"] = json!("Cargo.toml");
+        assert_ne!(source_marker(&tree, &paths).unwrap(), original);
+        tree["truncated"] = json!(true);
+        assert!(source_marker(&tree, &paths).is_err());
+    }
 
     fn run_fixture(id: u64, workflow: u64, pr: u64, conclusion: &str) -> Run {
         serde_json::from_value(json!({

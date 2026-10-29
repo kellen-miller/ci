@@ -783,8 +783,9 @@ fn pr_artifact_run(id: u64, conclusion: &str) -> Value {
 }
 
 fn pr_build_fixture(sandbox: &Sandbox, include_image: bool) {
+    sandbox.response("GET", "repos/example/project/git/trees/tree?recursive=1", 0, json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"source","type":"blob"}]}));
     let mut artifacts = vec![
-        json!({"id":1,"name":"pr-source-tree","expired":false,"workflow_run":{"id":1}}),
+        json!({"id":1,"name":"pr-source-b5d24126dec10091c2cb3e66b4299792d3f28e079b639dde26f70304fc80ba46","expired":false,"workflow_run":{"id":1}}),
         json!({"id":2,"name":"package","expired":false,"workflow_run":{"id":1}}),
     ];
     if include_image {
@@ -832,6 +833,7 @@ fn unchanged_build_reuses_a_complete_package_and_source_marker() {
             .env("GITHUB_EVENT_PATH", sandbox.root().join("event"))
             .env("GITHUB_RUN_ID", "2")
             .env("GITHUB_SHA", "abc")
+            .env("SOURCE_PATHS", r#"["Cargo.toml"]"#)
             .env("REQUIRED_ARTIFACTS", r#"["package","image"]"#)
             .output()
             .unwrap(),
@@ -839,7 +841,7 @@ fn unchanged_build_reuses_a_complete_package_and_source_marker() {
     let output = fs::read_to_string(sandbox.root().join("output")).unwrap();
     assert!(output.contains("build=false"));
     assert!(output.contains("run-id=1"));
-    assert!(output.contains(r#"artifacts=["package","image","pr-source-tree"]"#));
+    assert!(output.contains(r#"artifacts=["package","image","pr-source-b5d24126dec10091c2cb3e66b4299792d3f28e079b639dde26f70304fc80ba46"]"#));
     assert!(sandbox.calls().iter().all(|call| call.method == "GET"));
 }
 
@@ -853,6 +855,7 @@ fn unchanged_build_rebuilds_when_any_required_output_is_missing() {
             .env("GITHUB_EVENT_PATH", sandbox.root().join("event"))
             .env("GITHUB_RUN_ID", "2")
             .env("GITHUB_SHA", "abc")
+            .env("SOURCE_PATHS", r#"["Cargo.toml"]"#)
             .env("REQUIRED_ARTIFACTS", r#"["package","image"]"#)
             .output()
             .unwrap(),
