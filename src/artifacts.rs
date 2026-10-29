@@ -18,7 +18,6 @@ struct Run {
     status: String,
     conclusion: Option<String>,
     pull_requests: Vec<PullRequest>,
-    run_started_at: String,
     created_at: String,
     head_sha: String,
     head_branch: Option<String>,
@@ -40,7 +39,6 @@ struct Artifact {
     id: u64,
     name: String,
     expired: bool,
-    created_at: String,
     workflow_run: ArtifactRun,
 }
 
@@ -53,7 +51,7 @@ struct ArtifactRun {
 ///
 /// # Errors
 /// Returns errors from invalid inputs, GitHub requests, or output writes.
-pub fn run(mode: &str, dry_run: bool) -> Result<()> {
+pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
     ensure!(matches!(mode, "build" | "cleanup"), "invalid artifact mode");
     let repo = env::var("GITHUB_REPOSITORY")?;
     github::repository(&repo)?;
@@ -83,12 +81,11 @@ pub fn run(mode: &str, dry_run: bool) -> Result<()> {
         if let std::collections::btree_map::Entry::Vacant(entry) =
             runs.entry(artifact.workflow_run.id)
         {
-            let response = github::api(
-                &format!("{root}/runs/{}", artifact.workflow_run.id),
-                "GET",
-                None,
-                false,
-            )?;
+            let Some(response) =
+                github::api_if_exists(&format!("{root}/runs/{}", artifact.workflow_run.id), "GET")?
+            else {
+                continue;
+            };
             let mut run: Run = serde_json::from_value(response)?;
             if run.event == "pull_request" && run.pull_requests.is_empty() {
                 let pulls = github::api(
@@ -135,31 +132,41 @@ pub fn run(mode: &str, dry_run: bool) -> Result<()> {
             .as_str()
             .context("missing source tree")?;
         let source = format!("pr-source-{tree}");
-        let reusable = number.is_some_and(|number| {
-            artifacts.iter().any(|artifact| {
-                artifact.name == source
-                    && runs.get(&artifact.workflow_run.id).is_some_and(|run| {
-                        run.id != current_id
-                            && run.workflow_id == current.workflow_id
-                            && run.event == "pull_request"
-                            && run.conclusion.as_deref() == Some("success")
-                            && run.pull_requests.iter().any(|pr| pr.number == number)
-                            && artifacts.iter().any(|output| {
-                                output.workflow_run.id == run.id
-                                    && !output.name.starts_with("pr-source-")
+        let mut required: Vec<String> = serde_json::from_str(&env::var("REQUIRED_ARTIFACTS")?)?;
+        ensure!(!required.is_empty(), "declare the complete artifact set");
+        let reusable = number.and_then(|number| {
+            runs.values()
+                .filter(|run| {
+                    run.id != current_id
+                        && run.workflow_id == current.workflow_id
+                        && run.event == "pull_request"
+                        && run.conclusion.as_deref() == Some("success")
+                        && run.pull_requests.iter().any(|pr| pr.number == number)
+                        && artifacts.iter().any(|artifact| {
+                            artifact.workflow_run.id == run.id && artifact.name == source
+                        })
+                        && required.iter().all(|name| {
+                            artifacts.iter().any(|artifact| {
+                                artifact.workflow_run.id == run.id && artifact.name == *name
                             })
-                    })
-            })
+                        })
+                })
+                .max_by_key(|run| run.run_number)
         });
-        github_output::append("build", if reusable { "false" } else { "true" })?;
+        github_output::append("run-id", &reusable.map_or(0, |run| run.id).to_string())?;
+        required.push(source.clone());
+        github_output::append("artifacts", &serde_json::to_string(&required)?)?;
+        github_output::append("build", if reusable.is_some() { "false" } else { "true" })?;
         github_output::append("source", &source)?;
-        println!("Build required: {} ({source})", !reusable);
+        println!("Build required: {} ({source})", reusable.is_none());
         return Ok(());
     }
 
-    let retained = retained_runs(&runs, &artifacts);
+    let retained = retained_runs(&runs, &artifacts, include_failed);
     for artifact in artifacts {
-        let run = &runs[&artifact.workflow_run.id];
+        let Some(run) = runs.get(&artifact.workflow_run.id) else {
+            continue;
+        };
         if run.event != "pull_request" || run.status != "completed" || run.pull_requests.len() != 1
         {
             continue;
@@ -169,8 +176,8 @@ pub fn run(mode: &str, dry_run: bool) -> Result<()> {
         let Some(latest) = retained.get(&key).and_then(|id| runs.get(id)) else {
             continue;
         };
-        let superseded = run.run_number < latest.run_number
-            || (run.id == latest.id && artifact.created_at < latest.run_started_at);
+        // A partial rerun can legitimately reuse earlier attempts' outputs.
+        let superseded = run.run_number < latest.run_number;
         if !superseded {
             continue;
         }
@@ -183,19 +190,18 @@ pub fn run(mode: &str, dry_run: bool) -> Result<()> {
             key.1
         );
         if !dry_run {
-            github::api(
-                &format!("{root}/artifacts/{}", artifact.id),
-                "DELETE",
-                None,
-                false,
-            )?;
+            github::api_if_exists(&format!("{root}/artifacts/{}", artifact.id), "DELETE")?;
         }
     }
 
     Ok(())
 }
 
-fn retained_runs(runs: &BTreeMap<u64, Run>, artifacts: &[Artifact]) -> BTreeMap<(u64, u64), u64> {
+fn retained_runs(
+    runs: &BTreeMap<u64, Run>,
+    artifacts: &[Artifact],
+    include_failed: bool,
+) -> BTreeMap<(u64, u64), u64> {
     let available: HashSet<_> = artifacts
         .iter()
         .filter(|artifact| !artifact.name.starts_with("pr-source-"))
@@ -205,7 +211,7 @@ fn retained_runs(runs: &BTreeMap<u64, Run>, artifacts: &[Artifact]) -> BTreeMap<
     for run in runs.values() {
         if run.event != "pull_request"
             || run.status != "completed"
-            || run.conclusion.as_deref() != Some("success")
+            || (!include_failed && run.conclusion.as_deref() != Some("success"))
             || run.pull_requests.len() != 1
             || !available.contains(&run.id)
         {
@@ -277,7 +283,7 @@ mod tests {
             .collect();
         let runs = runs.into_iter().map(|run| (run.id, run)).collect();
         assert_eq!(
-            retained_runs(&runs, &artifacts),
+            retained_runs(&runs, &artifacts, false),
             BTreeMap::from([((10, 1), 2), ((11, 1), 3), ((10, 2), 4)])
         );
     }
@@ -297,7 +303,7 @@ mod tests {
             artifact_fixture(3, "pr-source-abc"),
         ];
         assert_eq!(
-            retained_runs(&runs, &artifacts),
+            retained_runs(&runs, &artifacts, false),
             BTreeMap::from([((10, 1), 1)])
         );
     }
@@ -315,10 +321,28 @@ mod tests {
                 &[
                     artifact_fixture(1, "package"),
                     artifact_fixture(2, "package")
-                ]
+                ],
+                false,
             )
             .is_empty()
         );
+    }
+
+    #[test]
+    fn diagnostic_reports_retain_only_the_latest_completed_failure() {
+        let runs = [
+            run_fixture(1, 10, 1, "failure"),
+            run_fixture(2, 10, 1, "failure"),
+        ]
+        .into_iter()
+        .map(|run| (run.id, run))
+        .collect();
+        let artifacts = [artifact_fixture(1, "report"), artifact_fixture(2, "report")];
+        assert_eq!(
+            retained_runs(&runs, &artifacts, true),
+            BTreeMap::from([((10, 1), 2)])
+        );
+        assert!(retained_runs(&runs, &artifacts, false).is_empty());
     }
 
     #[test]

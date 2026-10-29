@@ -21,6 +21,8 @@ enum Operation {
         mode: String,
         #[arg(long)]
         dry_run: bool,
+        #[arg(long)]
+        include_failed: bool,
     },
     Check,
     RustCheck,
@@ -91,7 +93,11 @@ fn execute(operation: Operation) -> Result<()> {
     }
 
     match operation {
-        Operation::PrArtifacts { mode, dry_run } => artifacts::run(&mode, dry_run),
+        Operation::PrArtifacts {
+            mode,
+            dry_run,
+            include_failed,
+        } => artifacts::run(&mode, dry_run, include_failed),
         Operation::Check => repository::check(),
         Operation::RustCheck => rust_check::run(),
         Operation::PinActions { commit } => repository::pin_actions(&commit),

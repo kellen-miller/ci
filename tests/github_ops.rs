@@ -230,6 +230,10 @@ fn operation_dispatch() {
     let operation = std::env::var("CI_TEST_OPERATION").unwrap();
     let result = if operation == "stale-branch-cleanup" {
         personal_ci::branches::run()
+    } else if operation == "pr-artifact-build" {
+        personal_ci::artifacts::run("build", false, false)
+    } else if operation == "pr-artifact-cleanup" {
+        personal_ci::artifacts::run("cleanup", false, false)
     } else {
         personal_ci::github::run(&operation)
     };
@@ -769,4 +773,134 @@ fn branch_warning_keeps_timestamp_until_tip_changes() {
             sha == "old"
         );
     }
+}
+
+fn pr_artifact_run(id: u64, conclusion: &str) -> Value {
+    json!({"id": id, "workflow_id": 10, "run_number": id, "event": "pull_request",
+        "status": "completed", "conclusion": conclusion, "pull_requests": [{"number": 7}],
+        "created_at": "2026-10-29T12:00:00Z", "head_sha": "abc",
+        "head_branch": "feature", "head_repository": {"id": 42}})
+}
+
+fn pr_build_fixture(sandbox: &Sandbox, include_image: bool) {
+    let mut artifacts = vec![
+        json!({"id":1,"name":"pr-source-tree","expired":false,"workflow_run":{"id":1}}),
+        json!({"id":2,"name":"package","expired":false,"workflow_run":{"id":1}}),
+    ];
+    if include_image {
+        artifacts.push(json!({"id":3,"name":"image","expired":false,"workflow_run":{"id":1}}));
+    }
+
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=1",
+        0,
+        json!({"artifacts":artifacts}),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/1",
+        0,
+        pr_artifact_run(1, "success"),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/2",
+        0,
+        pr_artifact_run(2, "success"),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/git/commits/abc",
+        0,
+        json!({"tree":{"sha":"tree"}}),
+    );
+    fs::write(
+        sandbox.root().join("event"),
+        r#"{"pull_request":{"number":7}}"#,
+    )
+    .unwrap();
+}
+
+#[test]
+fn unchanged_build_reuses_a_complete_package_and_source_marker() {
+    let sandbox = Sandbox::new();
+    pr_build_fixture(&sandbox, true);
+    successful(
+        sandbox
+            .command("pr-artifact-build")
+            .env("GITHUB_EVENT_PATH", sandbox.root().join("event"))
+            .env("GITHUB_RUN_ID", "2")
+            .env("GITHUB_SHA", "abc")
+            .env("REQUIRED_ARTIFACTS", r#"["package","image"]"#)
+            .output()
+            .unwrap(),
+    );
+    let output = fs::read_to_string(sandbox.root().join("output")).unwrap();
+    assert!(output.contains("build=false"));
+    assert!(output.contains("run-id=1"));
+    assert!(output.contains(r#"artifacts=["package","image","pr-source-tree"]"#));
+    assert!(sandbox.calls().iter().all(|call| call.method == "GET"));
+}
+
+#[test]
+fn unchanged_build_rebuilds_when_any_required_output_is_missing() {
+    let sandbox = Sandbox::new();
+    pr_build_fixture(&sandbox, false);
+    successful(
+        sandbox
+            .command("pr-artifact-build")
+            .env("GITHUB_EVENT_PATH", sandbox.root().join("event"))
+            .env("GITHUB_RUN_ID", "2")
+            .env("GITHUB_SHA", "abc")
+            .env("REQUIRED_ARTIFACTS", r#"["package","image"]"#)
+            .output()
+            .unwrap(),
+    );
+    let output = fs::read_to_string(sandbox.root().join("output")).unwrap();
+    assert!(output.contains("build=true"));
+    assert!(output.contains("run-id=0"));
+}
+
+#[test]
+fn cleanup_deletes_older_runs_but_preserves_outputs_from_partial_reruns() {
+    let sandbox = Sandbox::new();
+    let artifacts: Vec<_> = [(1, 1), (2, 2), (3, 2)]
+        .into_iter()
+        .map(
+            |(id, run)| json!({"id":id,"name":"package","expired":false,"workflow_run":{"id":run}}),
+        )
+        .collect();
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=1",
+        0,
+        json!({"artifacts":artifacts}),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/1",
+        0,
+        pr_artifact_run(1, "success"),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/2",
+        0,
+        pr_artifact_run(2, "success"),
+    );
+    sandbox.response(
+        "DELETE",
+        "repos/example/project/actions/artifacts/1",
+        0,
+        Value::Null,
+    );
+    successful(sandbox.command("pr-artifact-cleanup").output().unwrap());
+    let deleted: Vec<_> = sandbox
+        .calls()
+        .into_iter()
+        .filter(|call| call.method == "DELETE")
+        .map(|call| call.endpoint)
+        .collect();
+    assert_eq!(deleted, ["repos/example/project/actions/artifacts/1"]);
 }
