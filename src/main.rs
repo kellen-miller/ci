@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use personal_ci::{
-    branches, changed_paths, command, github, helm, local_files, node, packaging, release,
-    repository, rust_check, tooling, workflow_commands, workflow_security,
+    artifacts, branches, changed_paths, command, github, helm, local_files, node, packaging,
+    release, repository, rust_check, tooling, workflow_commands, workflow_security,
 };
 
 #[derive(Parser)]
@@ -16,6 +16,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Operation {
+    PrArtifacts {
+        #[arg(default_value = "cleanup")]
+        mode: String,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        include_failed: bool,
+    },
     Check,
     RustCheck,
     PinActions {
@@ -85,6 +93,11 @@ fn execute(operation: Operation) -> Result<()> {
     }
 
     match operation {
+        Operation::PrArtifacts {
+            mode,
+            dry_run,
+            include_failed,
+        } => artifacts::run(&mode, dry_run, include_failed),
         Operation::Check => repository::check(),
         Operation::RustCheck => rust_check::run(),
         Operation::PinActions { commit } => repository::pin_actions(&commit),

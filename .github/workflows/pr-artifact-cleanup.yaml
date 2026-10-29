@@ -1,0 +1,51 @@
+name: PR artifact cleanup
+on:
+  workflow_call:
+    inputs:
+      include-failed:
+        description: Keep the latest diagnostic report even when its tests failed
+        type: boolean
+        default: false
+      transient-prefix:
+        description: Delete consumed intermediate artifacts after a successful final upload
+        type: string
+        default: ''
+      dry-run:
+        description: Preview deletions without modifying artifacts
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Never check out or execute PR code in these metadata-only jobs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kellen-miller/ci
+          ref: bad1deb5c070c58bd59df6f768d51c6bb03c2581
+          path: .pr-artifact-ci
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          cache: false
+          rustflags: ''
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .pr-artifact-ci/target
+          key: pr-artifacts-${{ runner.os }}-bad1deb5c070c58bd59df6f768d51c6bb03c2581
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TRANSIENT_PREFIX: ${{ inputs.transient-prefix }}
+          INCLUDE_FAILED: ${{ inputs.include-failed }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          args=()
+          if [[ "$INCLUDE_FAILED" == true ]]; then args+=(--include-failed); fi
+          if [[ "$DRY_RUN" == true ]]; then args+=(--dry-run); fi
+          cargo run --locked --manifest-path .pr-artifact-ci/Cargo.toml -- pr-artifacts cleanup "${args[@]}"

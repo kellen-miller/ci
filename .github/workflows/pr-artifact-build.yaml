@@ -1,0 +1,80 @@
+name: PR artifact build
+on:
+  workflow_call:
+    inputs:
+      source-paths:
+        description: JSON array of build input globs, including workflow and dependency pins
+        type: string
+        required: true
+      artifacts:
+        description: JSON array naming every required final artifact
+        type: string
+        required: true
+    outputs:
+      build:
+        description: Whether source needs building
+        value: ${{ jobs.artifacts.outputs.build }}
+      source:
+        description: Artifact name identifying the complete merged source tree
+        value: ${{ jobs.artifacts.outputs.source }}
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      build: ${{ steps.artifacts.outputs.build }}
+      source: ${{ steps.artifacts.outputs.source }}
+      artifacts: ${{ steps.artifacts.outputs.artifacts }}
+      run-id: ${{ steps.artifacts.outputs.run-id }}
+    steps:
+      # Never check out or execute PR code in these metadata-only jobs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kellen-miller/ci
+          ref: bad1deb5c070c58bd59df6f768d51c6bb03c2581
+          path: .pr-artifact-ci
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          cache: false
+          rustflags: ''
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .pr-artifact-ci/target
+          key: pr-artifacts-${{ runner.os }}-bad1deb5c070c58bd59df6f768d51c6bb03c2581
+      - id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
+          REQUIRED_ARTIFACTS: ${{ inputs.artifacts }}
+        run: cargo run --locked --manifest-path .pr-artifact-ci/Cargo.toml -- pr-artifacts build
+  reuse:
+    needs: artifacts
+    if: needs.artifacts.outputs.build == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: ${{ fromJSON(needs.artifacts.outputs.artifacts) }}
+    steps:
+      # Treat downloaded files as opaque data; never execute their contents.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.artifacts.outputs.run-id }}
+          name: ${{ matrix.artifact }}
+          path: artifact
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifact/
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
