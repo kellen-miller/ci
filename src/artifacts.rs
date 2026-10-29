@@ -168,6 +168,27 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
                 })
                 .max_by_key(|run| run.run_number)
         });
+        // Verify the producer's inputs too; a marker name alone is not provenance.
+        let reusable = if let Some(run) = reusable {
+            let commit = github::api(
+                &format!("repos/{repo}/git/commits/{}", run.head_sha),
+                "GET",
+                None,
+                false,
+            )?;
+            let tree = commit["tree"]["sha"]
+                .as_str()
+                .context("missing producer source tree")?;
+            let tree = github::api(
+                &format!("repos/{repo}/git/trees/{tree}?recursive=1"),
+                "GET",
+                None,
+                false,
+            )?;
+            (source_marker(&tree, &paths)? == source).then_some(run)
+        } else {
+            None
+        };
         github_output::append("run-id", &reusable.map_or(0, |run| run.id).to_string())?;
         required.push(source.clone());
         github_output::append("artifacts", &serde_json::to_string(&required)?)?;
