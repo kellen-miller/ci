@@ -1004,3 +1004,36 @@ fn cleanup_removes_consumed_inputs_only_after_a_successful_final_upload() {
         .collect();
     assert_eq!(deleted, ["repos/example/project/actions/artifacts/1"]);
 }
+
+#[test]
+fn reuse_rejects_a_marker_forged_by_different_producer_inputs() {
+    let sandbox = Sandbox::new();
+    pr_build_fixture(&sandbox, true);
+    let mut producer = pr_artifact_run(1, "success");
+    producer["head_sha"] = json!("bad");
+    sandbox.response("GET", "repos/example/project/actions/runs/1", 0, producer);
+    sandbox.response(
+        "GET",
+        "repos/example/project/git/commits/bad",
+        0,
+        json!({"tree":{"sha":"bad-tree"}}),
+    );
+    sandbox.response("GET", "repos/example/project/git/trees/bad-tree?recursive=1", 0,
+        json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"tainted","type":"blob"}]}));
+    successful(
+        sandbox
+            .command("pr-artifact-build")
+            .env("GITHUB_EVENT_PATH", sandbox.root().join("event"))
+            .env("GITHUB_RUN_ID", "2")
+            .env("GITHUB_SHA", "abc")
+            .env("SOURCE_PATHS", r#"["Cargo.toml"]"#)
+            .env("REQUIRED_ARTIFACTS", r#"["package","image"]"#)
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        fs::read_to_string(sandbox.root().join("output"))
+            .unwrap()
+            .contains("build=true")
+    );
+}
