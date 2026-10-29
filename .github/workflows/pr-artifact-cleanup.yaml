@@ -1,0 +1,31 @@
+name: PR artifact cleanup
+on:
+  workflow_call:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Compile only pinned, trusted CI source. Never check out PR code here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kellen-miller/ci
+          ref: 6402d63c196619221f8edd7c36f2028c1baf3199
+          path: .pr-artifact-ci
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: stable
+          cache: false
+          rustflags: ''
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .pr-artifact-ci/target
+          key: pr-artifacts-${{ runner.os }}-6402d63c196619221f8edd7c36f2028c1baf3199
+      - id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: cargo run --locked --manifest-path .pr-artifact-ci/Cargo.toml -- pr-artifacts cleanup
