@@ -2,6 +2,10 @@ name: PR artifact build
 on:
   workflow_call:
     inputs:
+      source-paths:
+        description: JSON array of build input globs, including workflow and dependency pins
+        type: string
+        required: true
       artifacts:
         description: JSON array naming every required final artifact
         type: string
@@ -31,7 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: kellen-miller/ci
-          ref: ff0349dca044b37d213c9541a34e6369d506b329
+          ref: 9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
           path: .pr-artifact-ci
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
@@ -42,10 +46,11 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .pr-artifact-ci/target
-          key: pr-artifacts-${{ runner.os }}-ff0349dca044b37d213c9541a34e6369d506b329
+          key: pr-artifacts-${{ runner.os }}-9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
       - id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_PATHS: ${{ inputs.source-paths }}
           REQUIRED_ARTIFACTS: ${{ inputs.artifacts }}
         run: cargo run --locked --manifest-path .pr-artifact-ci/Cargo.toml -- pr-artifacts build
   reuse:

@@ -6,6 +6,10 @@ on:
         description: Keep the latest diagnostic report even when its tests failed
         type: boolean
         default: false
+      transient-prefix:
+        description: Delete consumed intermediate artifacts after a successful final upload
+        type: string
+        default: ''
       dry-run:
         description: Preview deletions without modifying artifacts
         type: boolean
@@ -23,7 +27,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: kellen-miller/ci
-          ref: ff0349dca044b37d213c9541a34e6369d506b329
+          ref: 9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
           path: .pr-artifact-ci
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
@@ -34,9 +38,10 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: .pr-artifact-ci/target
-          key: pr-artifacts-${{ runner.os }}-ff0349dca044b37d213c9541a34e6369d506b329
+          key: pr-artifacts-${{ runner.os }}-9eaaf1c2fea32a6952d648d4716f9c4c84cb377f
       - env:
           GH_TOKEN: ${{ github.token }}
+          TRANSIENT_PREFIX: ${{ inputs.transient-prefix }}
           INCLUDE_FAILED: ${{ inputs.include-failed }}
           DRY_RUN: ${{ inputs.dry-run }}
         run: |
