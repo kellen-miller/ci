@@ -163,7 +163,8 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
     }
 
     let retained = retained_runs(&runs, &artifacts, include_failed);
-    for artifact in artifacts {
+    let transient_prefix = env::var("TRANSIENT_PREFIX").unwrap_or_default();
+    for artifact in &artifacts {
         let Some(run) = runs.get(&artifact.workflow_run.id) else {
             continue;
         };
@@ -176,8 +177,16 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
         let Some(latest) = retained.get(&key).and_then(|id| runs.get(id)) else {
             continue;
         };
-        // A partial rerun can legitimately reuse earlier attempts' outputs.
-        let superseded = run.run_number < latest.run_number;
+        // A partial rerun can legitimately reuse earlier attempts' final outputs.
+        let consumed_input = !transient_prefix.is_empty()
+            && artifact.name.starts_with(&transient_prefix)
+            && run.conclusion.as_deref() == Some("success")
+            && artifacts.iter().any(|output| {
+                output.workflow_run.id == run.id
+                    && !output.name.starts_with(&transient_prefix)
+                    && !output.name.starts_with("pr-source-")
+            });
+        let superseded = run.run_number < latest.run_number || consumed_input;
         if !superseded {
             continue;
         }
@@ -211,7 +220,8 @@ fn retained_runs(
     for run in runs.values() {
         if run.event != "pull_request"
             || run.status != "completed"
-            || (!include_failed && run.conclusion.as_deref() != Some("success"))
+            || !(run.conclusion.as_deref() == Some("success")
+                || (include_failed && run.conclusion.as_deref() == Some("failure")))
             || run.pull_requests.len() != 1
             || !available.contains(&run.id)
         {

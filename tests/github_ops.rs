@@ -904,3 +904,100 @@ fn cleanup_deletes_older_runs_but_preserves_outputs_from_partial_reruns() {
         .collect();
     assert_eq!(deleted, ["repos/example/project/actions/artifacts/1"]);
 }
+
+#[test]
+fn cleanup_paginates_and_continues_when_an_artifact_was_already_deleted() {
+    let sandbox = Sandbox::new();
+    let artifacts: Vec<_> = (1..=100)
+        .map(|id| json!({"id":id,"name":"package","expired":false,"workflow_run":{"id":1}}))
+        .collect();
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=1",
+        0,
+        json!({"artifacts":artifacts}),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=2",
+        0,
+        json!({"artifacts":[{"id":101,"name":"package","expired":false,"workflow_run":{"id":2}}]}),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/1",
+        0,
+        pr_artifact_run(1, "success"),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/2",
+        0,
+        pr_artifact_run(2, "success"),
+    );
+    for id in 1..=100 {
+        let endpoint = format!("repos/example/project/actions/artifacts/{id}");
+        sandbox.response(
+            "DELETE",
+            &endpoint,
+            0,
+            if id == 1 {
+                json!({"status":"404"})
+            } else {
+                Value::Null
+            },
+        );
+        if id == 1 {
+            let key: String = endpoint.bytes().map(|byte| format!("{byte:02x}")).collect();
+            fs::write(sandbox.root().join(format!("DELETE-{key}.exit")), "1").unwrap();
+        }
+    }
+
+    successful(sandbox.command("pr-artifact-cleanup").output().unwrap());
+    let deleted: Vec<_> = sandbox
+        .calls()
+        .into_iter()
+        .filter(|call| call.method == "DELETE")
+        .collect();
+    assert_eq!(deleted.len(), 100);
+    assert!(deleted.iter().all(|call| !call.endpoint.ends_with("/101")));
+}
+
+#[test]
+fn cleanup_removes_consumed_inputs_only_after_a_successful_final_upload() {
+    let sandbox = Sandbox::new();
+    let artifacts = json!([{"id":1,"name":"input-binary","expired":false,"workflow_run":{"id":2}},
+        {"id":2,"name":"package","expired":false,"workflow_run":{"id":2}}]);
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/artifacts?per_page=100&page=1",
+        0,
+        json!({"artifacts":artifacts}),
+    );
+    sandbox.response(
+        "GET",
+        "repos/example/project/actions/runs/2",
+        0,
+        pr_artifact_run(2, "success"),
+    );
+    sandbox.response(
+        "DELETE",
+        "repos/example/project/actions/artifacts/1",
+        0,
+        Value::Null,
+    );
+    successful(
+        sandbox
+            .command("pr-artifact-cleanup")
+            .env("TRANSIENT_PREFIX", "input-")
+            .output()
+            .unwrap(),
+    );
+    let deleted: Vec<_> = sandbox
+        .calls()
+        .into_iter()
+        .filter(|call| call.method == "DELETE")
+        .map(|call| call.endpoint)
+        .collect();
+    assert_eq!(deleted, ["repos/example/project/actions/artifacts/1"]);
+}
