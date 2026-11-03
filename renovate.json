@@ -2,5 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>kellen-miller/.github:renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "Install the release graph when refreshing locks: npm lock-only mode misclassifies bundled registry tarballs under allow-remote=none.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        ".github/actions/release/semantic-release/package.json"
+      ],
+      "skipInstalls": false
+    }
   ]
 }

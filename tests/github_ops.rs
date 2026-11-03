@@ -230,6 +230,10 @@ fn operation_dispatch() {
     let operation = std::env::var("CI_TEST_OPERATION").unwrap();
     let result = if operation == "stale-branch-cleanup" {
         personal_ci::branches::run()
+    } else if operation == "pr-artifact-build" {
+        personal_ci::artifacts::run("build", false, false)
+    } else if operation == "pr-artifact-cleanup" {
+        personal_ci::artifacts::run("cleanup", false, false)
     } else {
         personal_ci::github::run(&operation)
     };
@@ -770,3 +774,6 @@ fn branch_warning_keeps_timestamp_until_tip_changes() {
         );
     }
 }
+
+#[path = "github_ops/artifacts.rs"]
+mod artifacts;
