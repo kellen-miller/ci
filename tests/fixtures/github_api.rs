@@ -44,4 +44,8 @@ fn main() {
     let bytes =
         fs::read(&response).unwrap_or_else(|_| panic!("unconfigured gh call: {method} {endpoint}"));
     println!("{}", String::from_utf8(bytes).unwrap());
+    if let Ok(code) = fs::read_to_string(stem.with_extension("exit")) {
+        std::process::exit(code.parse().unwrap());
+    }
+
 }
