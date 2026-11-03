@@ -77,6 +77,31 @@ pub(crate) fn encode(value: &str) -> String {
 }
 
 /// Keep gh pagination and request bodies explicit for every API side effect.
+pub(crate) fn api_if_exists(endpoint: &str, method: &str) -> Result<Option<Value>> {
+    let output = Command::new("gh")
+        .args(["api", endpoint, "--method", method])
+        .output()
+        .context("execute gh api")?;
+    if !output.status.success() {
+        let body: Value = serde_json::from_slice(&output.stdout).unwrap_or(Value::Null);
+        if body["status"] == "404" {
+            return Ok(None);
+        }
+
+        bail!(
+            "GitHub request failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    if output.stdout.iter().all(u8::is_ascii_whitespace) {
+        return Ok(Some(Value::Null));
+    }
+
+    Ok(Some(serde_json::from_slice(&output.stdout)?))
+}
+
+/// Keep gh pagination and request bodies explicit for every API side effect.
 pub(crate) fn api(
     endpoint: &str,
     method: &str,
