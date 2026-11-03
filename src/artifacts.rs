@@ -159,25 +159,24 @@ pub fn run(mode: &str, dry_run: bool, include_failed: bool) -> Result<()> {
         let source = source_marker(&tree, &paths)?;
         let mut required: Vec<String> = serde_json::from_str(&env::var("REQUIRED_ARTIFACTS")?)?;
         ensure!(!required.is_empty(), "declare the complete artifact set");
-        let reusable = number.and_then(|number| {
-            runs.values()
-                .filter(|run| {
-                    run.id != current_id
-                        && run.workflow_id == current.workflow_id
-                        && run.event == "pull_request"
-                        && run.conclusion.as_deref() == Some("success")
-                        && run.pull_requests.iter().any(|pr| pr.number == number)
-                        && artifacts.iter().any(|artifact| {
-                            artifact.workflow_run.id == run.id && artifact.name == source
+        let reusable = runs
+            .values()
+            .filter(|run| {
+                run.id != current_id
+                    && run.workflow_id == current.workflow_id
+                    && run.event == "pull_request"
+                    && run.conclusion.as_deref() == Some("success")
+                    && run.pull_requests.iter().any(|pr| Some(pr.number) == number)
+                    && artifacts.iter().any(|artifact| {
+                        artifact.workflow_run.id == run.id && artifact.name == source
+                    })
+                    && required.iter().all(|name| {
+                        artifacts.iter().any(|artifact| {
+                            artifact.workflow_run.id == run.id && artifact.name == *name
                         })
-                        && required.iter().all(|name| {
-                            artifacts.iter().any(|artifact| {
-                                artifact.workflow_run.id == run.id && artifact.name == *name
-                            })
-                        })
-                })
-                .max_by_key(|run| run.run_number)
-        });
+                    })
+            })
+            .max_by_key(|run| run.run_number);
         // Verify the producer's inputs too; a marker name alone is not provenance.
         let reusable = if let Some(run) = reusable {
             let commit = github::api(
