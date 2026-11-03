@@ -10,8 +10,11 @@
     ":docker",
     ":semanticCommitTypeAll(chore)",
     "config:recommended",
-    "helpers:pinGitHubActionDigests",
-    "schedule:automergeMonthly"
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "America/New_York",
+  "automergeSchedule": [
+    "* 0-3 1,15 * *"
   ],
   "lockFileMaintenance": {
     "enabled": true
