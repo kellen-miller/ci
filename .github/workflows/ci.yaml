@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).renovate || fromJSON(steps.changes.outputs.changes).release) }}
         with:
-          node-version: '24'
+          node-version: '26'
           package-manager-cache: false
       - name: Test duplication configuration
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust) }}

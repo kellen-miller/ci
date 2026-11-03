@@ -1,5 +1,6 @@
 //! Custom CI operations shared by the command-line entry point and actions.
 
+pub mod artifacts;
 pub mod branches;
 pub mod changed_paths;
 pub mod command;
