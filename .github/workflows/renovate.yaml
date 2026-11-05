@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   preset-config-validation:
-    name: Renovate / Preset and config validation
+    name: Preset and config validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

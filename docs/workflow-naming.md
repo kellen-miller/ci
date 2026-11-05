@@ -32,8 +32,11 @@ Existing GitHub Actions and Renovate `check-name` defaults stay unchanged.
 
 Keep matrix target/environment labels parenthesized. Prefer domain caller names
 without repeating the domain in the inner job. Distinguish repeated caller names
-with meaningful matrix or target labels where necessary. Local jobs use
-`Domain / Specific operation` for the same visible structure.
+with meaningful matrix or target labels where necessary. Regular jobs name the specific operation; the workflow title supplies the
+domain in workflow-qualified UI labels. Do not repeat that title in the job
+name. Required-check matching still uses the job name alone; give operations
+distinct target-qualified names when multiple workflows would otherwise emit
+the same name.
 
 ## Shared-CI migration
 
@@ -49,7 +52,8 @@ No CLI release or internal action repinning is needed for these YAML-only change
 Consumers pinned to older commits keep their existing names. When upgrading, update
 caller names and `.github/ruleset-requirements.json` to the exact emitted check
 names, then reconcile the live ruleset after a successful run. A workflow's title
-is not part of the required-check name; reusable caller and inner job names are.
+is shown in workflow-qualified UI labels but is not part of required-check
+matching; reusable caller and inner job names are.
 
 This repository's required `check` becomes the individual checks listed below.
 The manifest in this PR records them. Before merging, replace `check` in the
@@ -71,18 +75,18 @@ together; no Rust implementation changes are needed.
 
 | Workflow | Domain | Check | Required |
 | --- | --- | --- | --- |
-| `rust.yaml` | Rust | `Rust / Formatting validation` | Yes |
-| `rust.yaml` | Rust | `Rust / Clippy` | Yes |
-| `rust.yaml` | Rust | `Rust / CI CLI regression tests` | Yes |
-| `yaml.yaml` | YAML | `YAML / Style validation` | Yes |
-| `github-actions.yaml` | GitHub Actions | `GitHub Actions / Workflow syntax validation` | Yes |
-| `github-actions.yaml` | GitHub Actions | `GitHub Actions / Security policy validation` | Yes |
-| `shell.yaml` | Shell | `Shell / Static analysis` | Yes |
-| `go-policy.yaml` | Go | `Go / golangci-lint configuration validation` | Yes |
-| `renovate.yaml` | Renovate | `Renovate / Preset and config validation` | Yes |
-| `release-validation.yaml` | Releases | `Releases / Semantic-release integration tests` | Yes |
-| `code-duplication.yaml` | Code duplication | `Code duplication / JSCPD scan` | Yes |
-| `code-duplication.yaml` | Code duplication | `Code duplication / Configuration tests` | Yes |
+| `rust.yaml` | Rust | `Formatting validation` | Yes |
+| `rust.yaml` | Rust | `Compiler static analysis` | Yes |
+| `rust.yaml` | Rust | `CI CLI regression tests` | Yes |
+| `yaml.yaml` | YAML | `Style validation` | Yes |
+| `github-actions.yaml` | GitHub Actions | `Workflow syntax validation` | Yes |
+| `github-actions.yaml` | GitHub Actions | `Security policy validation` | Yes |
+| `shell.yaml` | Shell | `Static analysis` | Yes |
+| `go-policy.yaml` | Go | `golangci-lint configuration validation` | Yes |
+| `renovate.yaml` | Renovate | `Preset and config validation` | Yes |
+| `release-validation.yaml` | Releases | `Semantic-release integration tests` | Yes |
+| `code-duplication.yaml` | Code duplication | `JSCPD scan` | Yes |
+| `code-duplication.yaml` | Code duplication | `Configuration tests` | Yes |
 
 ## Reusable and maintenance job-name mapping
 

@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   jscpd-scan:
-    name: Code duplication / JSCPD scan
+    name: JSCPD scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -17,7 +17,7 @@ jobs:
       - name: Scan repository for duplicated code
         uses: ./.github/actions/code-duplication
   configuration-tests:
-    name: Code duplication / Configuration tests
+    name: Configuration tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

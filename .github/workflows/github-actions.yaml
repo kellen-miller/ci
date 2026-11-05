@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   workflow-syntax:
-    name: GitHub Actions / Workflow syntax validation
+    name: Workflow syntax validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -26,7 +26,7 @@ jobs:
       - name: Validate workflow syntax and embedded shell
         run: actionlint
   workflow-security:
-    name: GitHub Actions / Security policy validation
+    name: Security policy validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

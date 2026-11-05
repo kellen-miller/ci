@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   formatting:
-    name: Rust / Formatting validation
+    name: Formatting validation
     runs-on: ubuntu-latest
     env:
       CI_ROOT: ${{ github.workspace }}
@@ -30,7 +30,7 @@ jobs:
       - name: Formatting validation
         run: cargo run --locked -- rust-check
   clippy:
-    name: Rust / Clippy
+    name: Compiler static analysis
     runs-on: ubuntu-latest
     env:
       CI_ROOT: ${{ github.workspace }}
@@ -49,10 +49,10 @@ jobs:
           toolchain: stable
           components: rustfmt,clippy
           rustflags: ''
-      - name: Clippy
+      - name: Compiler static analysis
         run: cargo run --locked -- rust-check
   cli-regression-tests:
-    name: Rust / CI CLI regression tests
+    name: CI CLI regression tests
     runs-on: ubuntu-latest
     env:
       CI_ROOT: ${{ github.workspace }}
