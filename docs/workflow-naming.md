@@ -1,27 +1,34 @@
 # Workflow naming
 
 Display names use sentence case and preserve technical spelling. Filenames and
-job IDs use kebab-case. Caller names supply the domain; reusable job names identify
-the actual suite, tool, or operation. For example:
+job IDs use kebab-case. Workflow titles supply the domain in GitHub's
+workflow-qualified view. Reusable callers supply the concrete package, source
+path, environment or platform when that domain is already known:
 
 ```yaml
+name: Go
 jobs:
-  go-package-tests:
-    name: Go
+  backend-package-tests:
+    name: Backend
     uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
+      working-directory: backend
       check-name: Package tests with race detection
-  browser-end-to-end:
-    name: Browser
-    uses: kellen-miller/ci/.github/workflows/node-test.yaml@<reviewed-commit>
-    with:
-      test-script: test:e2e
-      check-name: Playwright end-to-end tests
 ```
 
-These produce `Go / Package tests with race detection` and
-`Browser / Playwright end-to-end tests`. The second example assumes the caller's
-`test:e2e` script actually runs Playwright end-to-end tests.
+The displayed label is `Go / Backend / Package tests with race detection`.
+The required-check API name is `Backend / Package tests with race detection`.
+In a mixed-domain workflow, a caller such as `Go` can still identify the domain.
+
+| Workflow | Reusable caller scope | Inner operation |
+| --- | --- | --- |
+| GitHub Actions | `.github/workflows` | Workflow validation |
+| Renovate | `renovate.json` | Config validation |
+| Go | Backend, `languages/go`, or matrix platform | Package tests |
+| Browser | Editor or web application | Playwright end-to-end tests |
+
+Callers must name the actual suite; a script is not necessarily a unit or
+browser suite merely because a shared runner executes it.
 
 Avoid bare `Tests`, `Lint`, `Build`, or `Checks`. Identify the tool, test scope,
 build product, or validation boundary. Shared commands cannot infer whether a
@@ -30,13 +37,11 @@ on Go tests, Gradle tasks, Node.js build/validation/tests, and Python tests so t
 caller can provide the precise name. Empty values retain the command-based default.
 Existing GitHub Actions and Renovate `check-name` defaults stay unchanged.
 
-Keep matrix target/environment labels parenthesized. Prefer domain caller names
-without repeating the domain in the inner job. Distinguish repeated caller names
-with meaningful matrix or target labels where necessary. Regular jobs name the specific operation; the workflow title supplies the
-domain in workflow-qualified UI labels. Do not repeat that title in the job
-name. Required-check matching still uses the job name alone; give operations
-distinct target-qualified names when multiple workflows would otherwise emit
-the same name.
+Keep matrix target/environment labels parenthesized. Never repeat the owning
+workflow title in a regular job or reusable caller. For regular jobs, name the
+specific operation. Required-check matching still uses the job name alone;
+use specific target qualifiers when multiple workflows would otherwise emit
+the same check name. Verify expanded matrix names from actual runs.
 
 ## Shared-CI migration
 

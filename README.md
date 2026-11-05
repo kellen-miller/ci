@@ -49,14 +49,16 @@ have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
 
 The GitHub Actions and Renovate validation jobs default to `Workflow validation`
-and `Config validation`. Name caller jobs `GitHub Actions` and `Renovate` so
-GitHub displays their scopes clearly. `check-name` supports intentionally
+and `Config validation`. When the owning workflow is already `GitHub Actions`
+or `Renovate`, use target caller names such as `.github/workflows` and
+`renovate.json` to avoid repeated domains in GitHub's displayed labels. `check-name` supports intentionally
 distinct checks; callers using the standard names need no override. Required
 check mappings must follow the resulting caller/job names when upgrading pins.
 
-Caller names identify the domain; inner job names identify the actual suite,
-tool, or operation, such as `Go / Package tests with race detection` or
-`Terraform / Module tests (network)`. Configurable test, build and validation
+Caller names identify a domain or, when the workflow already names that domain,
+the package, configuration file or deployment target. Inner job names identify
+the actual suite, tool or operation. For example, workflow `Go`, caller `Backend`
+and leaf `Package tests with race detection` display without a repeated domain. Configurable test, build and validation
 workflows accept `check-name` when the caller knows a more precise scope than
 the default command-based label. See [workflow naming](docs/workflow-naming.md)
 for the conventions, complete job-name mapping, and required-check migration.
@@ -79,7 +81,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   go-package-tests:
-    name: Go
+    name: Backend
     uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
       working-directory: backend
