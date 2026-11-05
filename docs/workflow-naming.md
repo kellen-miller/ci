@@ -74,10 +74,10 @@ together; no Rust implementation changes are needed.
 | `rust.yaml` | Rust | `Rust / Formatting validation` | Yes |
 | `rust.yaml` | Rust | `Rust / Clippy` | Yes |
 | `rust.yaml` | Rust | `Rust / CI CLI regression tests` | Yes |
-| `yaml.yaml` | YAML | `YAML / yamllint` | Yes |
+| `yaml.yaml` | YAML | `YAML / Style validation` | Yes |
 | `github-actions.yaml` | GitHub Actions | `GitHub Actions / Workflow syntax validation` | Yes |
 | `github-actions.yaml` | GitHub Actions | `GitHub Actions / Security policy validation` | Yes |
-| `shell.yaml` | Shell | `Shell / ShellCheck` | Yes |
+| `shell.yaml` | Shell | `Shell / Static analysis` | Yes |
 | `go-policy.yaml` | Go | `Go / golangci-lint configuration validation` | Yes |
 | `renovate.yaml` | Renovate | `Renovate / Preset and config validation` | Yes |
 | `release-validation.yaml` | Releases | `Releases / Semantic-release integration tests` | Yes |
