@@ -2,7 +2,7 @@
   "checks": [
     "Rust / Formatting validation",
     "Rust / Clippy",
-    "Rust / Runtime regression suite",
+    "Rust / CI CLI regression tests",
     "YAML / yamllint",
     "GitHub Actions / Workflow syntax validation",
     "GitHub Actions / Security policy validation",

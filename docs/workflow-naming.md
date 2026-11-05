@@ -44,7 +44,7 @@ removes the aggregate workflow's path-based phase selection and increases job
 startup/tool setup in exchange for independently visible verification results.
 Renamed internal job IDs have their `needs` and output references updated.
 The only new inputs are optional `check-name` strings; they affect job display only.
-No runtime release or internal action repinning is needed for these YAML-only changes.
+No CLI release or internal action repinning is needed for these YAML-only changes.
 
 Consumers pinned to older commits keep their existing names. When upgrading, update
 caller names and `.github/ruleset-requirements.json` to the exact emitted check
@@ -73,7 +73,7 @@ together; no Rust implementation changes are needed.
 | --- | --- | --- | --- |
 | `rust.yaml` | Rust | `Rust / Formatting validation` | Yes |
 | `rust.yaml` | Rust | `Rust / Clippy` | Yes |
-| `rust.yaml` | Rust | `Rust / Runtime regression suite` | Yes |
+| `rust.yaml` | Rust | `Rust / CI CLI regression tests` | Yes |
 | `yaml.yaml` | YAML | `YAML / yamllint` | Yes |
 | `github-actions.yaml` | GitHub Actions | `GitHub Actions / Workflow syntax validation` | Yes |
 | `github-actions.yaml` | GitHub Actions | `GitHub Actions / Security policy validation` | Yes |
@@ -115,9 +115,9 @@ Omitted old names fell back to job IDs. Reusable workflow paths remain stable AP
 | `python-lint.yaml` | Python formatting and lint | `lint` / `Python Lint` | `ruff-lint` / `Ruff lint` |
 | `python-test.yaml` | Python tests | `python-test` / `Python Test` | `pytest-suite` / `${{ inputs.check-name \|\| 'pytest suite' }}` |
 | `renovate-config-validator.yaml` | Renovate config validation | `validate` / `${{ inputs.check-name }}` | `config-validation` / `${{ inputs.check-name }}` |
-| `runtime-release.yaml` | Rust runtime release | `version` / `version` | `prepare-runtime-version` / `Prepare runtime version` |
-| `runtime-release.yaml` | Rust runtime release | `build` / `build` | `build-runtime` / `Build runtime (${{ matrix.target }})` |
-| `runtime-release.yaml` | Rust runtime release | `publish` / `publish` | `publish-runtime-release` / `Publish runtime release` |
+| `runtime-release.yaml` | CI CLI release | `version` / `version` | `prepare-cli-version` / `Prepare CLI version` |
+| `runtime-release.yaml` | CI CLI release | `build` / `build` | `build-cli-binary` / `Build CLI binary (${{ matrix.target }})` |
+| `runtime-release.yaml` | CI CLI release | `publish` / `publish` | `publish-cli-release` / `Publish CLI release` |
 | `stale-branch-cleanup.yaml` | Stale branches | `cleanup` / `cleanup` | `prune-stale-branches` / `Prune stale branches` |
 | `terraform-apply.yaml` | Terraform apply | `apply` / `Terraform Apply (${{ inputs.env-name }})` | `infrastructure-apply` / `Infrastructure apply (${{ inputs.env-name }})` |
 | `terraform-lint.yaml` | Terraform formatting and lint | `lint` / `Terraform Fmt + TFLint${{ inputs.trivy && ' + Trivy' \|\| '' }}` | `format-lint-scan` / `Formatting check and TFLint${{ inputs.trivy && ' with Trivy scan' \|\| '' }}` |

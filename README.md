@@ -33,7 +33,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `cosign-attest.yaml` | Registry login, SLSA predicate, keyless attestation and verification |
 | `deploy-github-pages.yaml` | Node site build, artifact handoff and Pages deployment |
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
-| `rust.yaml` | Rust formatting, Clippy and runtime regression tests |
+| `rust.yaml` | Rust formatting, Clippy and CI CLI regression tests |
 | `yaml.yaml` | YAML style validation with yamllint |
 | `github-actions.yaml` | Workflow syntax, embedded shell and security-policy validation |
 | `shell.yaml` | Shell source validation with ShellCheck |
@@ -43,7 +43,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `code-duplication.yaml` | JSCPD repository scan and configuration tests |
 
 Reusable workflows are listed alongside the domain-specific PR workflows,
-stale branch maintenance, artifact retention and Rust runtime releases. Workflows remain
+stale branch maintenance, artifact retention and CI CLI releases. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -263,7 +263,7 @@ revision. It passes lint levels from `lints.toml` as Clippy arguments, selects
 formatter. Cargo manifests and project configuration files are not rewritten.
 Set `policy-directory` only to replace all three policy files explicitly.
 
-The action requires Bash and the verified Rust runtime. Rust validates inputs
+The action requires Bash and the verified CI CLI binary. Rust validates inputs
 and selected policy before running Cargo, rejects multiline script inputs, and
 stops on the first failure.
 Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
@@ -342,7 +342,7 @@ first ten lines, then removes empty descendant directories.
 
 Vault workflows/actions and private-package auth are excluded. Runners use GitHub's
 hosted infrastructure; the shared dependency policy uses public registries.
-Release self-tests run in `release-validation.yaml`, separately from runtime
+Release self-tests run in `release-validation.yaml`, separately from CLI
 publication in `runtime-release.yaml`.
 
 ## Shared Renovate configuration
@@ -421,16 +421,16 @@ YAML, TOML, JSON and caller release configuration remain
 in the formats required by their tools. Shell steps contain short native tool
 invocations; `.github/actions/run.sh` bootstraps the executable.
 
-## Runtime binaries and action pins
+## CI CLI binaries and action pins
 
 External actions download the fixed `v<version>` release selected by
 `runtime-version`. The loader selects Linux x64/arm64, macOS x64/arm64, or Windows
 x64; verifies SHA-256 against that release's checksum record; then extracts and
 executes the archive. The binary also checks its embedded Rust source identity
-against the action checkout and rejects a stale runtime before running operations.
+against the action checkout and rejects a stale CLI binary before running operations.
 Linux binaries use musl for static linking. The job caches
 archives under `runner.temp` and verifies them on every invocation. No Cargo or
-Python interpreter is required for the shared Rust runtime.
+Python interpreter is required for the shared CI CLI.
 The loader requires `RUNNER_TEMP`; GitHub Actions provides this private job directory.
 
 Repository CI builds the current checkout first and explicitly supplies
@@ -439,7 +439,7 @@ binary directly, allowing PR tests without a published release. Bundled policy
 and required Node adapters come from the selected action checkout through
 `CI_ROOT`.
 
-The `Release Rust runtime` workflow runs on pushes to `main` and manual dispatch
+The `CI CLI release` workflow runs on pushes to `main` and manual dispatch
 on `main`. It uses the shared Conventional Commit release action to calculate
 versions, starting at `0.1.0`. A commit without a release-triggering change skips
 build and publication. All five platform archives must pass native qualification
@@ -453,11 +453,11 @@ The skip marker prevents the metadata push from starting a second release run;
 the current run continues through qualification and publication. A concurrent
 update to `main` rejects the push instead of overwriting it; retry on current main.
 The workflow uses its freshly built binary, so the first release does not depend
-on an existing runtime. GitHub's token-generated tag does not need to trigger a
+on an existing CLI release. GitHub's token-generated tag does not need to trigger a
 second workflow.
 
 Consumers should pin the published release tag's commit, whose `runtime-version`
-and embedded source identity match the assets. Publish the runtime assets before
+and embedded source identity match the assets. Publish the CLI assets before
 upgrading consumers. Release assets and checksum records are trusted as GitHub
 release content; keep those versioned assets immutable. A workflow commit pin
 alone does not prevent a release owner from replacing assets.
@@ -475,7 +475,7 @@ cargo run --locked -- pin-actions HEAD
 ```
 
 The pin command rejects differences in actions, Rust sources, Cargo inputs,
-policy and runtime version, including untracked implementation files. It verifies
+policy and CLI version, including untracked implementation files. It verifies
 the selected snapshot contains the executable and referenced actions. Review and
 validate the resulting workflow pins before publication.
 
