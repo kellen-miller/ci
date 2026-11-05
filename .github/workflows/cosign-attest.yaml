@@ -1,4 +1,4 @@
-name: Cosign Attest
+name: Cosign attestation
 'on':
   workflow_call:
     inputs:
@@ -37,8 +37,8 @@ permissions:
   id-token: write
   packages: write
 jobs:
-  attest:
-    name: Cosign Attest
+  attest-image:
+    name: Attest image with Cosign
     runs-on: ubuntu-latest
     steps:
       - name: Log in to signature registry

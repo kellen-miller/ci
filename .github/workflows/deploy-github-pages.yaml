@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages
+name: GitHub Pages
 'on':
   workflow_call:
     inputs:
@@ -43,8 +43,8 @@ permissions:
   pages: write
   id-token: write
 jobs:
-  build:
-    name: Build GitHub Pages
+  build-site:
+    name: Build site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -73,9 +73,9 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:
           path: ${{ inputs.working-directory }}/${{ inputs.output-directory }}
-  deploy:
-    name: Deploy GitHub Pages
-    needs: build
+  deploy-site:
+    name: Deploy site
+    needs: build-site
     runs-on: ubuntu-latest
     environment:
       name: github-pages

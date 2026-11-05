@@ -1,4 +1,4 @@
-name: Terraform Lint
+name: Terraform formatting and lint
 on:
   workflow_call:
     inputs:
@@ -35,8 +35,8 @@ on:
 permissions:
   contents: read
 jobs:
-  lint:
-    name: Terraform Fmt + TFLint${{ inputs.trivy && ' + Trivy' || '' }}
+  format-lint-scan:
+    name: Formatting check and TFLint${{ inputs.trivy && ' with Trivy scan' || '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

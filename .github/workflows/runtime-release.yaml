@@ -1,4 +1,4 @@
-name: Release Rust runtime
+name: Rust runtime release
 on:
   push:
     branches:
@@ -10,7 +10,8 @@ concurrency:
   group: runtime-release
   cancel-in-progress: false
 jobs:
-  version:
+  prepare-runtime-version:
+    name: Prepare runtime version
     permissions:
       contents: write
     if: github.ref == 'refs/heads/main'
@@ -59,9 +60,10 @@ jobs:
             git push "git@github.com:$GITHUB_REPOSITORY.git" HEAD:refs/heads/main
           fi
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-  build:
-    needs: version
-    if: needs.version.outputs.version != ''
+  build-runtime:
+    name: Build runtime (${{ matrix.target }})
+    needs: prepare-runtime-version
+    if: needs.prepare-runtime-version.outputs.version != ''
     strategy:
       fail-fast: false
       matrix:
@@ -81,7 +83,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-          ref: ${{ needs.version.outputs.commit }}
+          ref: ${{ needs.prepare-runtime-version.outputs.commit }}
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
         with:
           toolchain: stable
@@ -114,10 +116,11 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 7
-  publish:
+  publish-runtime-release:
+    name: Publish runtime release
     needs:
-      - version
-      - build
+      - prepare-runtime-version
+      - build-runtime
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -127,7 +130,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-          ref: ${{ needs.version.outputs.commit }}
+          ref: ${{ needs.prepare-runtime-version.outputs.commit }}
           fetch-depth: 0
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
         with:
@@ -149,7 +152,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
-          EXPECTED_VERSION: ${{ needs.version.outputs.version }}
+          EXPECTED_VERSION: ${{ needs.prepare-runtime-version.outputs.version }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           test "$RELEASE_VERSION" = "$EXPECTED_VERSION"

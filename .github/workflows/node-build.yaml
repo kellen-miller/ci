@@ -1,7 +1,11 @@
-name: Node Build
+name: Node.js build
 'on':
   workflow_call:
     inputs:
+      check-name:
+        description: Specific suite or operation name shown beneath the caller domain.
+        type: string
+        default: ''
       working-directory:
         description: Working directory containing package.json and the lockfile.
         type: string
@@ -33,8 +37,8 @@ name: Node Build
 permissions:
   contents: read
 jobs:
-  build:
-    name: Node Build
+  build-script:
+    name: ${{ inputs.check-name || format('Build script ({0})', inputs.build-script) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -49,7 +53,7 @@ jobs:
           pnpm-version: ${{ inputs.pnpm-version }}
           bun-version: ${{ inputs.bun-version }}
           install-args: ${{ inputs.install-args }}
-      - name: Run build
+      - name: Run build script (${{ inputs.build-script }})
         working-directory: ${{ inputs.working-directory }}
         env:
           PM: ${{ steps.setup.outputs.package-manager }}

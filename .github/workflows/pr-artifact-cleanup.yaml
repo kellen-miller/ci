@@ -19,7 +19,8 @@ permissions:
   actions: write
   pull-requests: read
 jobs:
-  artifacts:
+  prune-pr-artifacts:
+    name: Prune PR artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

@@ -1,4 +1,4 @@
-name: Publish Docker Image to Google Artifact Registry
+name: Docker images
 'on':
   workflow_call:
     inputs:
@@ -79,10 +79,10 @@ name: Publish Docker Image to Google Artifact Registry
     outputs:
       digest:
         description: Published manifest digest
-        value: ${{ jobs.publish-manifest.outputs.digest }}
+        value: ${{ jobs.publish-image-manifest.outputs.digest }}
 jobs:
-  resolve-build-platforms:
-    name: Resolve Build Platforms
+  resolve-image-platforms:
+    name: Resolve image platforms
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.platforms.outputs.matrix }}
@@ -94,9 +94,9 @@ jobs:
         uses: kellen-miller/ci/.github/actions/run@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           operation: platform-matrix
-  publish-platform-image:
-    name: ${{ matrix.suffix }}
-    needs: resolve-build-platforms
+  build-platform-image:
+    name: Build image (${{ matrix.suffix }})
+    needs: resolve-image-platforms
     runs-on: ${{ matrix.runner_label }}
     environment: ${{ inputs.environment }}
     permissions:
@@ -104,7 +104,7 @@ jobs:
       id-token: write
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.resolve-build-platforms.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.resolve-image-platforms.outputs.matrix) }}
     env:
       IMAGE: ${{ inputs.repository-region }}-docker.pkg.dev/${{ inputs.project-id }}/${{ inputs.repository-name
         }}/${{ inputs.image-name }}
@@ -167,12 +167,12 @@ jobs:
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
-  publish-manifest:
-    name: Publish Manifest
+  publish-image-manifest:
+    name: Publish image manifest
     if: ${{ inputs.push }}
     needs:
-      - resolve-build-platforms
-      - publish-platform-image
+      - resolve-image-platforms
+      - build-platform-image
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     permissions:

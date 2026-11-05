@@ -1,7 +1,11 @@
-name: Python Test
+name: Python tests
 'on':
   workflow_call:
     inputs:
+      check-name:
+        description: Specific suite or operation name shown beneath the caller domain.
+        type: string
+        default: ''
       working-directory:
         description: Working directory containing pyproject.toml and tests
         type: string
@@ -13,8 +17,8 @@ name: Python Test
 permissions:
   contents: read
 jobs:
-  python-test:
-    name: Python Test
+  pytest-suite:
+    name: ${{ inputs.check-name || 'pytest suite' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -34,7 +38,7 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: |
           uv sync --locked
-      - name: Run Python tests
+      - name: Run pytest suite
         working-directory: ${{ inputs.working-directory }}
         run: |
           read -r -a args <<< "$PYTEST_ARGS"

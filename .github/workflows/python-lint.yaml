@@ -1,4 +1,4 @@
-name: Python Lint
+name: Python formatting and lint
 on:
   workflow_call:
     inputs:
@@ -9,8 +9,8 @@ on:
 permissions:
   contents: read
 jobs:
-  format:
-    name: Python Format
+  ruff-format:
+    name: Ruff formatting check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -20,8 +20,8 @@ jobs:
         with:
           src: ${{ inputs.src }}
           args: format --check --diff
-  lint:
-    name: Python Lint
+  ruff-lint:
+    name: Ruff lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

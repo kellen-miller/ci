@@ -1,4 +1,4 @@
-name: Publish Helm Chart to Google Artifact Registry
+name: Helm charts
 'on':
   workflow_call:
     inputs:
@@ -40,7 +40,7 @@ name: Publish Helm Chart to Google Artifact Registry
         required: true
 jobs:
   publish-helm-chart:
-    name: Publish Helm Chart
+    name: Publish Helm chart
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     permissions:

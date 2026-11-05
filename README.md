@@ -47,6 +47,13 @@ GitHub displays their scopes clearly. `check-name` supports intentionally
 distinct checks; callers using the standard names need no override. Required
 check mappings must follow the resulting caller/job names when upgrading pins.
 
+Caller names identify the domain; inner job names identify the actual suite,
+tool, or operation, such as `Go / Package tests with race detection` or
+`Terraform / Module tests (network)`. Configurable test, build and validation
+workflows accept `check-name` when the caller knows a more precise scope than
+the default command-based label. See [workflow naming](docs/workflow-naming.md)
+for the conventions, complete job-name mapping, and required-check migration.
+
 On pull requests, the Renovate validator skips Node setup and validation unless
 the selected `config-file`, `default.json`, or a caller workflow changes. It
 compares the PR head against its merge base, including deletions and renames.
@@ -55,7 +62,7 @@ checks. Non-PR calls always validate. Changes to remotely inherited presets must
 be validated in the repository that owns them.
 
 ```yaml
-name: Test
+name: Go
 on:
   pull_request:
 permissions:
@@ -64,7 +71,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
-  go:
+  go-package-tests:
+    name: Go
     uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
       working-directory: backend
@@ -300,7 +308,7 @@ appropriate cloud bindings. Environment gates remain under consumer control.
 Cosign verification requires an exact caller-supplied signing certificate identity,
 including its workflow URL and ref; there is no organization-wide regex default.
 
-The `Stale Branch Cleanup` workflow scans this owner's installed repositories every
+The `Stale branches` workflow scans this owner's installed repositories every
 Monday at 09:00 UTC, following Weave's weekly warning/cleanup model. Archived and
 forked repositories are excluded during discovery and checked again by the action.
 Set repository variable `BRANCH_CLEANUP_APP_CLIENT_ID` and secret

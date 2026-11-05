@@ -25,7 +25,7 @@ on:
 permissions:
   contents: read
 jobs:
-  validate:
+  config-validation:
     name: ${{ inputs.check-name }}
     runs-on: ubuntu-latest
     steps:

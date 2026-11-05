@@ -1,4 +1,4 @@
-name: CI
+name: Shared automation
 on:
   pull_request:
 permissions:
@@ -7,7 +7,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 jobs:
-  duplication-action:
+  duplication-threshold-integration:
+    name: Code duplication / Threshold integration tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -44,7 +45,8 @@ jobs:
         run: |
           test "$ACCEPTED" = success
           test "$REJECTED" = failure
-  check:
+  runtime-policy-validation:
+    name: Shared automation / Runtime regression and policy validation
     env:
       CI_BINARY: ${{ github.workspace }}/target/debug/ci
     runs-on: ubuntu-latest
@@ -102,7 +104,7 @@ jobs:
       - name: Install golangci-lint
         if: ${{ !cancelled() && (steps.changes.outcome != 'success' || fromJSON(steps.changes.outputs.changes).rust || fromJSON(steps.changes.outputs.changes).go_config) }}
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
-      - name: Validate repository
+      - name: Validate runtime, workflows and policies
         if: ${{ !cancelled() }}
         env:
           CI_CHANGED_GROUPS: ${{ steps.changes.outputs.changes }}
