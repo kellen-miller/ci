@@ -33,10 +33,17 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `cosign-attest.yaml` | Registry login, SLSA predicate, keyless attestation and verification |
 | `deploy-github-pages.yaml` | Node site build, artifact handoff and Pages deployment |
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
-| `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
+| `rust.yaml` | Rust formatting, Clippy and CI CLI regression tests |
+| `yaml.yaml` | YAML style validation with yamllint |
+| `github-actions.yaml` | Workflow syntax, embedded shell and security-policy validation |
+| `shell.yaml` | Shell source validation with ShellCheck |
+| `go-policy.yaml` | Bundled golangci-lint configuration validation |
+| `renovate.yaml` | Shared preset and repository config validation |
+| `release-validation.yaml` | Semantic-release dry-run integration tests |
+| `code-duplication.yaml` | JSCPD repository scan and configuration tests |
 
-There are 20 reusable workflows, plus repository CI, stale branch maintenance,
-and Rust runtime releases. Workflows remain
+Reusable workflows are listed alongside the domain-specific PR workflows,
+stale branch maintenance, artifact retention and CI CLI releases. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -47,6 +54,13 @@ GitHub displays their scopes clearly. `check-name` supports intentionally
 distinct checks; callers using the standard names need no override. Required
 check mappings must follow the resulting caller/job names when upgrading pins.
 
+Caller names identify the domain; inner job names identify the actual suite,
+tool, or operation, such as `Go / Package tests with race detection` or
+`Terraform / Module tests (network)`. Configurable test, build and validation
+workflows accept `check-name` when the caller knows a more precise scope than
+the default command-based label. See [workflow naming](docs/workflow-naming.md)
+for the conventions, complete job-name mapping, and required-check migration.
+
 On pull requests, the Renovate validator skips Node setup and validation unless
 the selected `config-file`, `default.json`, or a caller workflow changes. It
 compares the PR head against its merge base, including deletions and renames.
@@ -55,7 +69,7 @@ checks. Non-PR calls always validate. Changes to remotely inherited presets must
 be validated in the repository that owns them.
 
 ```yaml
-name: Test
+name: Go
 on:
   pull_request:
 permissions:
@@ -64,7 +78,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
-  go:
+  go-package-tests:
+    name: Go
     uses: kellen-miller/ci/.github/workflows/go-test.yaml@<reviewed-commit>
     with:
       working-directory: backend
@@ -248,7 +263,7 @@ revision. It passes lint levels from `lints.toml` as Clippy arguments, selects
 formatter. Cargo manifests and project configuration files are not rewritten.
 Set `policy-directory` only to replace all three policy files explicitly.
 
-The action requires Bash and the verified Rust runtime. Rust validates inputs
+The action requires Bash and the verified CI CLI binary. Rust validates inputs
 and selected policy before running Cargo, rejects multiline script inputs, and
 stops on the first failure.
 Formatting runs `cargo fmt --all -- --check --config-path <policy>/rustfmt.toml`.
@@ -300,7 +315,7 @@ appropriate cloud bindings. Environment gates remain under consumer control.
 Cosign verification requires an exact caller-supplied signing certificate identity,
 including its workflow URL and ref; there is no organization-wide regex default.
 
-The `Stale Branch Cleanup` workflow scans this owner's installed repositories every
+The `Stale branches` workflow scans this owner's installed repositories every
 Monday at 09:00 UTC, following Weave's weekly warning/cleanup model. Archived and
 forked repositories are excluded during discovery and checked again by the action.
 Set repository variable `BRANCH_CLEANUP_APP_CLIENT_ID` and secret
@@ -327,7 +342,8 @@ first ten lines, then removes empty descendant directories.
 
 Vault workflows/actions and private-package auth are excluded. Runners use GitHub's
 hosted infrastructure; the shared dependency policy uses public registries.
-Release self-tests are part of `ci.yaml` rather than a second repository workflow.
+Release self-tests run in `release-validation.yaml`, separately from CLI
+publication in `runtime-release.yaml`.
 
 ## Shared Renovate configuration
 
@@ -405,16 +421,16 @@ YAML, TOML, JSON and caller release configuration remain
 in the formats required by their tools. Shell steps contain short native tool
 invocations; `.github/actions/run.sh` bootstraps the executable.
 
-## Runtime binaries and action pins
+## CI CLI binaries and action pins
 
 External actions download the fixed `v<version>` release selected by
 `runtime-version`. The loader selects Linux x64/arm64, macOS x64/arm64, or Windows
 x64; verifies SHA-256 against that release's checksum record; then extracts and
 executes the archive. The binary also checks its embedded Rust source identity
-against the action checkout and rejects a stale runtime before running operations.
+against the action checkout and rejects a stale CLI binary before running operations.
 Linux binaries use musl for static linking. The job caches
 archives under `runner.temp` and verifies them on every invocation. No Cargo or
-Python interpreter is required for the shared Rust runtime.
+Python interpreter is required for the shared CI CLI.
 The loader requires `RUNNER_TEMP`; GitHub Actions provides this private job directory.
 
 Repository CI builds the current checkout first and explicitly supplies
@@ -423,7 +439,7 @@ binary directly, allowing PR tests without a published release. Bundled policy
 and required Node adapters come from the selected action checkout through
 `CI_ROOT`.
 
-The `Release Rust runtime` workflow runs on pushes to `main` and manual dispatch
+The `CI CLI release` workflow runs on pushes to `main` and manual dispatch
 on `main`. It uses the shared Conventional Commit release action to calculate
 versions, starting at `0.1.0`. A commit without a release-triggering change skips
 build and publication. All five platform archives must pass native qualification
@@ -437,11 +453,11 @@ The skip marker prevents the metadata push from starting a second release run;
 the current run continues through qualification and publication. A concurrent
 update to `main` rejects the push instead of overwriting it; retry on current main.
 The workflow uses its freshly built binary, so the first release does not depend
-on an existing runtime. GitHub's token-generated tag does not need to trigger a
+on an existing CLI release. GitHub's token-generated tag does not need to trigger a
 second workflow.
 
 Consumers should pin the published release tag's commit, whose `runtime-version`
-and embedded source identity match the assets. Publish the runtime assets before
+and embedded source identity match the assets. Publish the CLI assets before
 upgrading consumers. Release assets and checksum records are trusted as GitHub
 release content; keep those versioned assets immutable. A workflow commit pin
 alone does not prevent a release owner from replacing assets.
@@ -459,7 +475,7 @@ cargo run --locked -- pin-actions HEAD
 ```
 
 The pin command rejects differences in actions, Rust sources, Cargo inputs,
-policy and runtime version, including untracked implementation files. It verifies
+policy and CLI version, including untracked implementation files. It verifies
 the selected snapshot contains the executable and referenced actions. Review and
 validate the resulting workflow pins before publication.
 
@@ -488,6 +504,7 @@ Manual/scheduled runs and release semantics remain independent of PR paths.
 The shared Actions lint workflow gates lint/security steps internally; its
 required check remains successful when those inputs have not changed.
 
-This repository gates individual validation phases and their expensive tool
-setup. Local `cargo run --locked -- check` calls without `CI_CHANGED_GROUPS` run
-all checks. The selected group map is supplied only by the CI detector.
+This repository runs domain-specific workflows on every PR, with individual
+required checks and no aggregate CI workflow. Local `cargo run --locked -- check`
+still runs the combined validation phases; `CI_CHANGED_GROUPS` remains available
+for explicitly selected local phases.

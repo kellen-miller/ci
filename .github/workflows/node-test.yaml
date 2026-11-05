@@ -1,7 +1,11 @@
-name: Node Test
+name: Node.js tests
 'on':
   workflow_call:
     inputs:
+      check-name:
+        description: Specific suite or operation name shown beneath the caller domain.
+        type: string
+        default: ''
       working-directory:
         description: Working directory containing package.json and the lockfile.
         type: string
@@ -61,8 +65,8 @@ name: Node Test
 permissions:
   contents: read
 jobs:
-  test:
-    name: Node Test
+  test-script:
+    name: ${{ inputs.check-name || format('Test script ({0})', inputs.test-script) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -84,7 +88,7 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
           browsers: ${{ inputs.playwright-browsers }}
           version: ${{ inputs.playwright-version }}
-      - name: Run tests
+      - name: Run test script (${{ inputs.test-script }})
         working-directory: ${{ inputs.working-directory }}
         env:
           PM: ${{ steps.setup.outputs.package-manager }}

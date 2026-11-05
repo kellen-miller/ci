@@ -1,7 +1,11 @@
-name: Go Test
+name: Go tests
 'on':
   workflow_call:
     inputs:
+      check-name:
+        description: Specific suite or operation name shown beneath the caller domain.
+        type: string
+        default: ''
       runner:
         description: Runner label; callers can supply their operating-system matrix.
         type: string
@@ -43,8 +47,8 @@ name: Go Test
         type: string
         default: .
 jobs:
-  go-test:
-    name: Go Test
+  package-tests:
+    name: ${{ inputs.check-name || format('Package tests{0}', inputs.race && ' with race detection' || '') }}
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -56,7 +60,7 @@ jobs:
           go-version: ${{ inputs.go-version-file == '' && inputs.go-version || '' }}
           go-version-file: ${{ inputs.go-version-file }}
           cache-dependency-path: ${{ inputs.working-directory }}/go.sum
-      - name: Run Go unit tests
+      - name: Run package tests and optional vet/build
         env:
           INTEGRATION: ${{ inputs.integration }}
           RACE: ${{ inputs.race }}

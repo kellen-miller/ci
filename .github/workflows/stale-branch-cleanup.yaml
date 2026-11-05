@@ -1,4 +1,4 @@
-name: Stale Branch Cleanup
+name: Stale branches
 on:
   schedule:
     - cron: '0 9 * * 1'
@@ -14,7 +14,8 @@ concurrency:
   group: stale-branch-cleanup
   cancel-in-progress: false
 jobs:
-  cleanup:
+  prune-stale-branches:
+    name: Prune stale branches
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

@@ -1,4 +1,4 @@
-name: Python Build
+name: Python package build
 'on':
   workflow_call:
     inputs:
@@ -13,10 +13,10 @@ name: Python Build
     outputs:
       run-id:
         description: Workflow run id for artifact retrieval
-        value: ${{ jobs.build-python-artifact.outputs.run-id }}
+        value: ${{ jobs.package-distributions.outputs.run-id }}
 jobs:
-  build-python-artifact:
-    name: Build Python Artifact
+  package-distributions:
+    name: Package distributions
     runs-on: ubuntu-latest
     outputs:
       run-id: ${{ github.run_id }}

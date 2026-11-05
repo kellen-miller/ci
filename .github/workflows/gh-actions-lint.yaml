@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
 jobs:
-  lint:
+  workflow-validation:
     name: ${{ inputs.check-name }}
     runs-on: ubuntu-latest
     steps:
@@ -25,18 +25,21 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - id: paths
+      - name: Detect workflow changes
+        id: paths
         uses: kellen-miller/ci/.github/actions/changed-paths@349cce1044cfe84a8ad80cce226d760b6a9d3485
         with:
           filters: >-
             {"workflows":[".github/**","action.yml","action.yaml",".actionlint*","actionlint*",".shellcheckrc",".zizmor*","zizmor*"]}
-      - uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a
+      - name: Validate workflow syntax with actionlint
+        uses: reviewdog/action-actionlint@dbe5299849118fd6f099ba563d263d770955a64a
         if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           reporter: local
           filter_mode: nofilter
           fail_level: any
-      - uses: kellen-miller/ci/.github/actions/validate-workflow-security@349cce1044cfe84a8ad80cce226d760b6a9d3485
+      - name: Validate workflow security policy
+        uses: kellen-miller/ci/.github/actions/validate-workflow-security@349cce1044cfe84a8ad80cce226d760b6a9d3485
         if: ${{ !cancelled() && (steps.paths.outcome != 'success' || fromJSON(steps.paths.outputs.changes).workflows) }}
         with:
           allow-pull-request-target: ${{ inputs.allow-pull-request-target }}

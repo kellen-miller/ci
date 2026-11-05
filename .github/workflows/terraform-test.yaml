@@ -1,4 +1,4 @@
-name: Terraform Test
+name: Terraform tests and validation
 'on':
   workflow_call:
     inputs:
@@ -21,7 +21,7 @@ permissions:
   contents: read
 jobs:
   module-tests:
-    name: Terraform Test (${{ matrix.name }})
+    name: Module tests (${{ matrix.name }})
     if: inputs.modules != '[]'
     runs-on: ubuntu-latest
     strategy:
@@ -42,8 +42,8 @@ jobs:
       - name: Terraform test
         working-directory: ${{ matrix.path }}
         run: terraform test -no-color
-  validate:
-    name: Terraform Validate (${{ matrix.name }})
+  environment-validation:
+    name: Environment validation (${{ matrix.name }})
     if: inputs.environments != '[]'
     runs-on: ubuntu-latest
     strategy:

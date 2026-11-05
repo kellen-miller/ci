@@ -1,0 +1,32 @@
+name: Shell
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  shellcheck:
+    name: Shell / Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+      - name: Validate shell sources
+        shell: bash
+        run: |
+          scripts=()
+          while IFS= read -r -d '' file; do
+            if [[ "$file" == *.sh ]]; then
+              scripts+=("$file")
+            fi
+          done < <(git ls-files --cached --others --exclude-standard -z -- .github scripts)
+          if (( ${#scripts[@]} )); then
+            shellcheck "${scripts[@]}"
+          fi

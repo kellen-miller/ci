@@ -19,7 +19,8 @@ concurrency:
   group: pr-artifact-retention
   cancel-in-progress: false
 jobs:
-  cleanup:
+  prune-pr-artifacts:
+    name: PR artifacts
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'pull_request'
     uses: kellen-miller/ci/.github/workflows/pr-artifact-cleanup.yaml@aac24776009ea1ba9042ae3bb8b84f9bf463b951
     with:

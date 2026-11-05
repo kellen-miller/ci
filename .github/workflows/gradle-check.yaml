@@ -1,7 +1,11 @@
-name: Gradle Check
+name: Gradle tasks
 on:
   workflow_call:
     inputs:
+      check-name:
+        description: Specific suite or operation name shown beneath the caller domain.
+        type: string
+        default: ''
       runner:
         description: Runner label for validation.
         type: string
@@ -25,8 +29,8 @@ on:
 permissions:
   contents: read
 jobs:
-  check:
-    name: Gradle Check
+  wrapper-tasks:
+    name: ${{ inputs.check-name || format('Wrapper tasks ({0})', inputs.arguments) }}
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -39,7 +43,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
         with:
           cache-provider: basic
-      - name: Run Gradle validation
+      - name: Run Gradle wrapper tasks
         env:
           GRADLE_ARGUMENTS: ${{ inputs.arguments }}
         uses: kellen-miller/ci/.github/actions/run@349cce1044cfe84a8ad80cce226d760b6a9d3485

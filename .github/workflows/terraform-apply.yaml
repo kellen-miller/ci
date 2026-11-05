@@ -1,4 +1,4 @@
-name: Terraform Apply
+name: Terraform apply
 'on':
   workflow_call:
     inputs:
@@ -34,8 +34,8 @@ permissions:
   contents: read
   id-token: write
 jobs:
-  apply:
-    name: Terraform Apply (${{ inputs.env-name }})
+  infrastructure-apply:
+    name: Infrastructure apply (${{ inputs.env-name }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

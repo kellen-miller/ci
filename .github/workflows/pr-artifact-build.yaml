@@ -1,4 +1,4 @@
-name: PR artifact build
+name: PR artifact reuse
 on:
   workflow_call:
     inputs:
@@ -13,16 +13,17 @@ on:
     outputs:
       build:
         description: Whether source needs building
-        value: ${{ jobs.artifacts.outputs.build }}
+        value: ${{ jobs.resolve-artifact-reuse.outputs.build }}
       source:
         description: Artifact name identifying the complete merged source tree
-        value: ${{ jobs.artifacts.outputs.source }}
+        value: ${{ jobs.resolve-artifact-reuse.outputs.source }}
 permissions:
   contents: read
   actions: read
   pull-requests: read
 jobs:
-  artifacts:
+  resolve-artifact-reuse:
+    name: Resolve artifact reuse
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -53,21 +54,22 @@ jobs:
           SOURCE_PATHS: ${{ inputs.source-paths }}
           REQUIRED_ARTIFACTS: ${{ inputs.artifacts }}
         run: cargo run --locked --manifest-path .pr-artifact-ci/Cargo.toml -- pr-artifacts build
-  reuse:
-    needs: artifacts
-    if: needs.artifacts.outputs.build == 'false'
+  reuse-artifact:
+    name: Reuse artifact (${{ matrix.artifact }})
+    needs: resolve-artifact-reuse
+    if: needs.resolve-artifact-reuse.outputs.build == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        artifact: ${{ fromJSON(needs.artifacts.outputs.artifacts) }}
+        artifact: ${{ fromJSON(needs.resolve-artifact-reuse.outputs.artifacts) }}
     steps:
       # Treat downloaded files as opaque data; never execute their contents.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ needs.artifacts.outputs.run-id }}
+          run-id: ${{ needs.resolve-artifact-reuse.outputs.run-id }}
           name: ${{ matrix.artifact }}
           path: artifact
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

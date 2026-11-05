@@ -1,4 +1,4 @@
-name: Deploy Image to Cloud Run
+name: Cloud Run
 'on':
   workflow_call:
     inputs:
@@ -94,8 +94,8 @@ name: Deploy Image to Cloud Run
       WORKLOAD_IDENTITY_PROVIDER:
         required: true
 jobs:
-  deploy-image-cloud-run:
-    name: Deploy Image to Cloud Run
+  deploy-image:
+    name: Deploy image to Cloud Run
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     permissions:

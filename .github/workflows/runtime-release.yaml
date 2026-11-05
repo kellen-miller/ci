@@ -1,4 +1,4 @@
-name: Release Rust runtime
+name: CI CLI release
 on:
   push:
     branches:
@@ -10,7 +10,8 @@ concurrency:
   group: runtime-release
   cancel-in-progress: false
 jobs:
-  version:
+  prepare-cli-version:
+    name: Prepare CLI version
     permissions:
       contents: write
     if: github.ref == 'refs/heads/main'
@@ -36,7 +37,7 @@ jobs:
           token: ${{ github.token }}
           first-release-version: '0.1.0'
           dry-run: 'true'
-      - name: Commit synchronized runtime version
+      - name: Commit synchronized CLI version
         id: version
         if: steps.release.outputs.version != ''
         env:
@@ -59,9 +60,10 @@ jobs:
             git push "git@github.com:$GITHUB_REPOSITORY.git" HEAD:refs/heads/main
           fi
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-  build:
-    needs: version
-    if: needs.version.outputs.version != ''
+  build-cli-binary:
+    name: Build CLI binary (${{ matrix.target }})
+    needs: prepare-cli-version
+    if: needs.prepare-cli-version.outputs.version != ''
     strategy:
       fail-fast: false
       matrix:
@@ -81,7 +83,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-          ref: ${{ needs.version.outputs.commit }}
+          ref: ${{ needs.prepare-cli-version.outputs.commit }}
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
         with:
           toolchain: stable
@@ -90,7 +92,7 @@ jobs:
       - name: Install Linux static-link tools
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes musl-tools
-      - name: Build runtime
+      - name: Build CLI binary
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -100,7 +102,7 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
         run: cargo run --locked -- package "$TARGET" "target/$TARGET/release/ci${{ runner.os == 'Windows' && '.exe' || '' }}" dist
-      - name: Qualify packaged runtime
+      - name: Verify packaged CLI binary
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -114,10 +116,11 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 7
-  publish:
+  publish-cli-release:
+    name: Publish CLI release
     needs:
-      - version
-      - build
+      - prepare-cli-version
+      - build-cli-binary
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -127,7 +130,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-          ref: ${{ needs.version.outputs.commit }}
+          ref: ${{ needs.prepare-cli-version.outputs.commit }}
           fetch-depth: 0
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
         with:
@@ -149,7 +152,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
-          EXPECTED_VERSION: ${{ needs.version.outputs.version }}
+          EXPECTED_VERSION: ${{ needs.prepare-cli-version.outputs.version }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           test "$RELEASE_VERSION" = "$EXPECTED_VERSION"

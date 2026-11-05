@@ -1,4 +1,4 @@
-name: Helm lint
+name: Helm chart validation
 on:
   workflow_call:
     inputs:
@@ -53,7 +53,8 @@ on:
 permissions:
   contents: read
 jobs:
-  lint:
+  chart-validation:
+    name: Chart lint and rendering${{ inputs.validate-schemas && ' with schema validation' || '' }}${{ inputs.trivy && ' and Trivy scan' || '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -70,7 +71,7 @@ jobs:
           schema-locations: ${{ inputs.schema-locations }}
           kubernetes-version: ${{ inputs.kubernetes-version }}
         id: charts
-      - name: Scan rendered manifests
+      - name: Scan rendered manifests with Trivy
         if: inputs.trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
