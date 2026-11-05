@@ -40,7 +40,7 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `go-policy.yaml` | Bundled golangci-lint configuration validation |
 | `renovate.yaml` | Shared preset and repository config validation |
 | `release-validation.yaml` | Semantic-release dry-run integration tests |
-| `code-duplication.yaml` | Duplication configuration and threshold integration tests |
+| `code-duplication.yaml` | JSCPD repository scan and configuration tests |
 
 Reusable workflows are listed alongside the domain-specific PR workflows,
 stale branch maintenance, artifact retention and Rust runtime releases. Workflows remain

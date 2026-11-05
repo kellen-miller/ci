@@ -55,8 +55,9 @@ This repository's required `check` becomes the individual checks listed below.
 The manifest in this PR records them. Before merging, replace `check` in the
 active `personal/main` ruleset with these successful checks, preserving their
 GitHub Actions integration binding. The old requirement otherwise waits
-indefinitely. This PR does not change live settings. The threshold integration
-check remains additional coverage; it was not required by the old manifest.
+indefinitely. This PR does not change live settings. A required JSCPD scan now checks the
+actual repository using the shared duplication policy; the artificial threshold
+fixture test is removed.
 
 The artifact-retention caller still uses its existing SHA-pinned cleanup workflow;
 its new caller label is `PR artifacts`, so it reports `PR artifacts / artifacts`
@@ -80,7 +81,7 @@ together; no Rust implementation changes are needed.
 | `go-policy.yaml` | Go | `Go / golangci-lint configuration validation` | Yes |
 | `renovate.yaml` | Renovate | `Renovate / Preset and config validation` | Yes |
 | `release-validation.yaml` | Releases | `Releases / Semantic-release integration tests` | Yes |
-| `code-duplication.yaml` | Code duplication | `Code duplication / Threshold integration tests` | No |
+| `code-duplication.yaml` | Code duplication | `Code duplication / JSCPD scan` | Yes |
 | `code-duplication.yaml` | Code duplication | `Code duplication / Configuration tests` | Yes |
 
 ## Reusable and maintenance job-name mapping
