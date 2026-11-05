@@ -37,8 +37,12 @@ with meaningful matrix or target labels where necessary. Local jobs use
 
 ## Shared-CI migration
 
-Workflow paths, triggers, commands, permissions, output keys, and action pins stay
-stable. Renamed internal job IDs have their `needs` and output references updated.
+Reusable workflow paths, triggers, commands, permissions, output keys, and action
+pins stay stable. This repository's aggregate `ci.yaml` is replaced by the domain
+workflows below. Each domain runs on every PR and reports its own check. This
+removes the aggregate workflow's path-based phase selection and increases job
+startup/tool setup in exchange for independently visible verification results.
+Renamed internal job IDs have their `needs` and output references updated.
 The only new inputs are optional `check-name` strings; they affect job display only.
 No runtime release or internal action repinning is needed for these YAML-only changes.
 
@@ -47,26 +51,45 @@ caller names and `.github/ruleset-requirements.json` to the exact emitted check
 names, then reconcile the live ruleset after a successful run. A workflow's title
 is not part of the required-check name; reusable caller and inner job names are.
 
-This repository's own required check changes from `check` to
-`Shared automation / Runtime regression and policy validation`. The manifest in
-this PR records the new name. Before merging, switch the active `personal/main`
-ruleset to the successful new check, preserving its GitHub Actions integration
-binding. The old `check` requirement otherwise waits indefinitely. This PR does
-not change live settings.
+This repository's required `check` becomes the individual checks listed below.
+The manifest in this PR records them. Before merging, replace `check` in the
+active `personal/main` ruleset with these successful checks, preserving their
+GitHub Actions integration binding. The old requirement otherwise waits
+indefinitely. This PR does not change live settings. The threshold integration
+check remains additional coverage; it was not required by the old manifest.
 
 The artifact-retention caller still uses its existing SHA-pinned cleanup workflow;
 its new caller label is `PR artifacts`, so it reports `PR artifacts / artifacts`
 until its pin is upgraded in the consumer rollout.
 
-## Complete job-name mapping
+## Repository domains
+
+`ci.yaml` is removed. Its phases now have these workflow and check identities.
+The local `check` command remains a convenience for running the same phases
+together; no Rust implementation changes are needed.
+
+| Workflow | Domain | Check | Required |
+| --- | --- | --- | --- |
+| `rust.yaml` | Rust | `Rust / Formatting validation` | Yes |
+| `rust.yaml` | Rust | `Rust / Clippy` | Yes |
+| `rust.yaml` | Rust | `Rust / Runtime regression suite` | Yes |
+| `yaml.yaml` | YAML | `YAML / yamllint` | Yes |
+| `github-actions.yaml` | GitHub Actions | `GitHub Actions / actionlint` | Yes |
+| `github-actions.yaml` | GitHub Actions | `GitHub Actions / Security policy validation` | Yes |
+| `shell.yaml` | Shell | `Shell / ShellCheck` | Yes |
+| `go-policy.yaml` | Go | `Go / golangci-lint configuration validation` | Yes |
+| `renovate.yaml` | Renovate | `Renovate / Preset and config validation` | Yes |
+| `release-validation.yaml` | Releases | `Releases / Semantic-release integration tests` | Yes |
+| `code-duplication.yaml` | Code duplication | `Code duplication / Threshold integration tests` | No |
+| `code-duplication.yaml` | Code duplication | `Code duplication / Configuration tests` | Yes |
+
+## Reusable and maintenance job-name mapping
 
 Expressions below are evaluated by GitHub using caller inputs or matrix values.
-Omitted old names fell back to job IDs. Workflow paths remain stable APIs.
+Omitted old names fell back to job IDs. Reusable workflow paths remain stable APIs.
 
 | Workflow file | Workflow title | Previous job ID / name | New job ID / name |
 | --- | --- | --- | --- |
-| `ci.yaml` | Shared automation | `duplication-action` / `duplication-action` | `duplication-threshold-integration` / `Code duplication / Threshold integration tests` |
-| `ci.yaml` | Shared automation | `check` / `check` | `runtime-policy-validation` / `Shared automation / Runtime regression and policy validation` |
 | `cosign-attest.yaml` | Cosign attestation | `attest` / `Cosign Attest` | `attest-image` / `Attest image with Cosign` |
 | `deploy-github-pages.yaml` | GitHub Pages | `build` / `Build GitHub Pages` | `build-site` / `Build site` |
 | `deploy-github-pages.yaml` | GitHub Pages | `deploy` / `Deploy GitHub Pages` | `deploy-site` / `Deploy site` |

@@ -1,0 +1,60 @@
+name: Code duplication
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  duplication-threshold-integration:
+    name: Code duplication / Threshold integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare duplicated source fixture
+        shell: bash
+        run: |
+          fixture="$RUNNER_TEMP/duplication-fixture"
+          mkdir -p "$fixture"
+          for index in {1..25}; do
+            printf 'const sample%s = %s + 1;\n' "$index" "$index"
+          done > "$fixture/first.js"
+          cp "$fixture/first.js" "$fixture/second.js"
+      - name: Accept duplication below the threshold
+        id: accepted
+        uses: ./.github/actions/code-duplication
+        with:
+          working-directory: ${{ runner.temp }}/duplication-fixture
+          threshold: '100'
+      - name: Reject duplication above the threshold
+        id: rejected
+        continue-on-error: true
+        uses: ./.github/actions/code-duplication
+        with:
+          working-directory: ${{ runner.temp }}/duplication-fixture
+          threshold: '0'
+      - name: Verify action outcomes
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ACCEPTED: ${{ steps.accepted.outcome }}
+          REJECTED: ${{ steps.rejected.outcome }}
+        run: |
+          test "$ACCEPTED" = success
+          test "$REJECTED" = failure
+  configuration-tests:
+    name: Code duplication / Configuration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '26'
+          package-manager-cache: false
+      - name: Test duplication configuration
+        run: node --test .github/actions/code-duplication/config.test.mjs

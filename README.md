@@ -33,10 +33,17 @@ Use workflows, actions and the shared Renovate preset from `kellen-miller/ci`.
 | `cosign-attest.yaml` | Registry login, SLSA predicate, keyless attestation and verification |
 | `deploy-github-pages.yaml` | Node site build, artifact handoff and Pages deployment |
 | `deploy-image-cloud-run.yaml` | OIDC auth and caller-configured Cloud Run deployment |
-| `ci.yaml` | This repository's PR-only validation and regression tests; not reusable |
+| `rust.yaml` | Rust formatting, Clippy and runtime regression tests |
+| `yaml.yaml` | YAML style validation with yamllint |
+| `github-actions.yaml` | Workflow syntax, embedded shell and security-policy validation |
+| `shell.yaml` | Shell source validation with ShellCheck |
+| `go-policy.yaml` | Bundled golangci-lint configuration validation |
+| `renovate.yaml` | Shared preset and repository config validation |
+| `release-validation.yaml` | Semantic-release dry-run integration tests |
+| `code-duplication.yaml` | Duplication configuration and threshold integration tests |
 
-There are 20 reusable workflows, plus repository CI, stale branch maintenance,
-and Rust runtime releases. Workflows remain
+Reusable workflows are listed alongside the domain-specific PR workflows,
+stale branch maintenance, artifact retention and Rust runtime releases. Workflows remain
 where they coordinate multiple operations or jobs. Checkout-plus-action wrappers
 have been removed: use those actions directly. Python lint keeps separate format
 and lint jobs; Helm keeps rendering, schema validation and security scanning.
@@ -335,7 +342,8 @@ first ten lines, then removes empty descendant directories.
 
 Vault workflows/actions and private-package auth are excluded. Runners use GitHub's
 hosted infrastructure; the shared dependency policy uses public registries.
-Release self-tests are part of `ci.yaml` rather than a second repository workflow.
+Release self-tests run in `release-validation.yaml`, separately from runtime
+publication in `runtime-release.yaml`.
 
 ## Shared Renovate configuration
 
@@ -496,6 +504,7 @@ Manual/scheduled runs and release semantics remain independent of PR paths.
 The shared Actions lint workflow gates lint/security steps internally; its
 required check remains successful when those inputs have not changed.
 
-This repository gates individual validation phases and their expensive tool
-setup. Local `cargo run --locked -- check` calls without `CI_CHANGED_GROUPS` run
-all checks. The selected group map is supplied only by the CI detector.
+This repository runs domain-specific workflows on every PR, with individual
+required checks and no aggregate CI workflow. Local `cargo run --locked -- check`
+still runs the combined validation phases; `CI_CHANGED_GROUPS` remains available
+for explicitly selected local phases.

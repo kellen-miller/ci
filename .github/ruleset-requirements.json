@@ -1,6 +1,16 @@
 {
   "checks": [
-    "Shared automation / Runtime regression and policy validation"
+    "Rust / Formatting validation",
+    "Rust / Clippy",
+    "Rust / Runtime regression suite",
+    "YAML / yamllint",
+    "GitHub Actions / actionlint",
+    "GitHub Actions / Security policy validation",
+    "Shell / ShellCheck",
+    "Go / golangci-lint configuration validation",
+    "Renovate / Preset and config validation",
+    "Releases / Semantic-release integration tests",
+    "Code duplication / Configuration tests"
   ],
   "release_deploy_key_id": 167336584
 }
