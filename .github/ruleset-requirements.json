@@ -4,7 +4,7 @@
     "Rust / Clippy",
     "Rust / Runtime regression suite",
     "YAML / yamllint",
-    "GitHub Actions / actionlint",
+    "GitHub Actions / Workflow syntax validation",
     "GitHub Actions / Security policy validation",
     "Shell / ShellCheck",
     "Go / golangci-lint configuration validation",

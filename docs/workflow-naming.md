@@ -75,7 +75,7 @@ together; no Rust implementation changes are needed.
 | `rust.yaml` | Rust | `Rust / Clippy` | Yes |
 | `rust.yaml` | Rust | `Rust / Runtime regression suite` | Yes |
 | `yaml.yaml` | YAML | `YAML / yamllint` | Yes |
-| `github-actions.yaml` | GitHub Actions | `GitHub Actions / actionlint` | Yes |
+| `github-actions.yaml` | GitHub Actions | `GitHub Actions / Workflow syntax validation` | Yes |
 | `github-actions.yaml` | GitHub Actions | `GitHub Actions / Security policy validation` | Yes |
 | `shell.yaml` | Shell | `Shell / ShellCheck` | Yes |
 | `go-policy.yaml` | Go | `Go / golangci-lint configuration validation` | Yes |
