@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   semantic-release-integration:
-    name: Releases / Semantic-release integration tests
+    name: Semantic-release integration tests
     runs-on: ubuntu-latest
     env:
       CI_BINARY: ${{ github.workspace }}/target/debug/ci
