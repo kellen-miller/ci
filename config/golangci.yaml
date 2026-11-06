@@ -277,6 +277,7 @@ linters:
         - google.golang.org/grpc/status.Errorf(
         - status.Error
         - status.Errorf
+        - (*google.golang.org/grpc/internal/status.Status).Err(
         - go.temporal.io/sdk/temporal.NewNonRetryableApplicationError(
   exclusions:
     generated: lax
