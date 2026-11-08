@@ -358,19 +358,17 @@ other repositories can use the same reference:
 }
 ```
 
-The preset groups non-major dependency updates, uses squash merges and `chore`
-commits, maintains lockfiles, and runs `go mod tidy` after Go updates. Eligible
-updates can automerge after status checks pass, during the monthly merge window.
-GitHub Actions require review; version releases wait three days, while SHA/digest
-updates have no age delay. npm and PyPI releases also wait three days, and build/
-publish tooling requires review. Custom managers update annotated YAML versions,
-Git-ref digests and Docker ARG versions. Private registry credentials, organization
-package exceptions, mutable CI-reference exemptions and token-specific workarounds
-are excluded. The source policy's disabled vulnerability-alert updates are retained.
+The preset groups every dependency update into one PR, with lockfile maintenance
+in a separate PR. Renovate runs on the 1st and 15th of each month. Nothing
+automerges; every PR requires review. It uses `chore` commits and runs
+`go mod tidy` after Go updates. GitHub Actions version releases wait three days,
+while SHA/digest updates have no age delay. npm and PyPI releases also wait
+three days. Custom managers update annotated YAML versions, Git-ref digests and
+Docker ARG versions. Private registry credentials, organization package
+exceptions, mutable CI-reference exemptions and token-specific workarounds are
+excluded. The source policy's disabled vulnerability-alert updates are retained.
 
-`platformAutomerge: false` lets Renovate enforce the monthly window. This controls
-merge timing; it does not restrict Renovate scans to once a month. See the
-[automerge schedule documentation](https://docs.renovatebot.com/configuration-options/#automergeschedule).
+See the [schedule documentation](https://docs.renovatebot.com/configuration-options/#schedule).
 The preset uses UTC unless the consumer sets `timezone`.
 
 Local checks and CI validate both JSON files with the pinned Renovate validator.
