@@ -1,23 +1,24 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "autoApprove": true,
-  "automergeStrategy": "squash",
   "extends": [
-    ":automergeMinor",
-    ":automergePr",
-    ":automergeRequireAllStatusChecks",
     ":configMigration",
     ":docker",
     ":semanticCommitTypeAll(chore)",
     "config:recommended",
+    "group:all",
     "helpers:pinGitHubActionDigests"
   ],
   "timezone": "America/New_York",
-  "automergeSchedule": [
-    "* 0-3 1,15 * *"
+  "schedule": [
+    "* * 1,15 * *"
   ],
   "lockFileMaintenance": {
-    "enabled": true
+    "enabled": true,
+    "groupName": null,
+    "groupSlug": null,
+    "schedule": [
+      "* * 1,15 * *"
+    ]
   },
   "vulnerabilityAlerts": {
     "enabled": false
@@ -67,19 +68,6 @@
       ]
     },
     {
-      "automerge": true,
-      "groupName": "all non-major dependencies",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ]
-    },
-    {
-      "autoApprove": false,
-      "automerge": false,
-      "groupName": "github actions",
       "matchManagers": [
         "github-actions"
       ],
@@ -91,9 +79,6 @@
       "minimumReleaseAge": "3 days"
     },
     {
-      "autoApprove": false,
-      "automerge": false,
-      "groupName": "github actions",
       "matchManagers": [
         "github-actions"
       ],
@@ -111,32 +96,8 @@
         "pypi"
       ],
       "minimumReleaseAge": "3 days"
-    },
-    {
-      "description": "Do not automerge package registry updates that run publish/build tooling.",
-      "autoApprove": false,
-      "automerge": false,
-      "matchDatasources": [
-        "npm",
-        "pypi"
-      ],
-      "matchPackageNames": [
-        "@semantic-release/**",
-        "@types/node",
-        "build",
-        "cycjimmy/semantic-release-action",
-        "npm",
-        "pnpm",
-        "pypa/gh-action-pypi-publish",
-        "ruff",
-        "semantic-release",
-        "setuptools",
-        "twine",
-        "uv"
-      ]
     }
   ],
-  "platformAutomerge": false,
   "rebaseWhen": "conflicted",
   "description": "Shared CI and dependency update policy for public repositories."
 }
