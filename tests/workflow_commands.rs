@@ -120,12 +120,13 @@ impl Fixture {
         });
         fs::create_dir_all(self.root().join("bin")).unwrap();
         fs::create_dir_all(self.root().join("recordings")).unwrap();
+        // Install once per fixture: rewriting an executed binary in place can
+        // invalidate its cached code signature, and macOS then SIGKILLs it.
         for name in ["pm", "docker"] {
-            fs::copy(
-                compiled.path().join("recorder"),
-                self.root().join("bin").join(name),
-            )
-            .unwrap();
+            let installed = self.root().join("bin").join(name);
+            if !installed.exists() {
+                fs::copy(compiled.path().join("recorder"), installed).unwrap();
+            }
         }
 
         let mut command = self.cli(operation);
