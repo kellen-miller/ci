@@ -363,7 +363,7 @@ fn shared_policy_keeps_cohesive_mapping_limit_and_explicit_private_visibility() 
                 )
             })
             .collect();
-        fs::write(&source, format!("pub enum FrameKind {{ {} }}\npub struct WireFields {{\n{fields}}}\npub fn decode(kind: FrameKind) -> WireFields {{\n    match kind {{\n{arms}    }}\n}}\n", names.join(", "))).unwrap();
+        fs::write(&source, format!("#[derive(Clone, Copy)]\npub enum FrameKind {{ {} }}\npub struct WireFields {{\n{fields}}}\npub fn decode(kind: FrameKind) -> WireFields {{\n    match kind {{\n{arms}    }}\n}}\n", names.join(", "))).unwrap();
         let output = workspace.run("clippy");
         assert_eq!(output.status.success(), expected);
         if !expected {

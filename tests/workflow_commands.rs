@@ -189,7 +189,7 @@ fn successful(output: Output) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
-fn failed(output: Output, expected: &str) {
+fn failed(output: &Output, expected: &str) {
     assert!(
         !output.status.success(),
         "unexpected success: {}",
@@ -356,7 +356,7 @@ fn workflow_security_rejects_unpinned_actions_and_checkout_credentials() {
             &format!("jobs:\n  check:\n    uses: {reference}\n"),
         );
         failed(
-            fixture.cli("workflow-security").output().unwrap(),
+            &fixture.cli("workflow-security").output().unwrap(),
             "full commit SHA",
         );
     }
@@ -369,7 +369,7 @@ fn workflow_security_rejects_unpinned_actions_and_checkout_credentials() {
         let fixture = Fixture::new();
         fixture.write(".github/workflows/test.yaml",&format!("jobs:\n  check:\n    steps:\n      - name: Checkout\n        uses: actions/checkout@{SHA}\n{setting}"));
         failed(
-            fixture.cli("workflow-security").output().unwrap(),
+            &fixture.cli("workflow-security").output().unwrap(),
             "persist-credentials: false",
         );
     }
@@ -385,9 +385,9 @@ fn workflow_security_requires_target_and_inheritance_opt_ins() {
         let fixture = Fixture::new();
         fixture.write(".github/workflows/test.yaml",&format!("{trigger}jobs:\n  check:\n    uses: example/ci/.github/workflows/lint.yaml@{SHA}\n    secrets:\n      inherit\n"));
         let output = fixture.cli("workflow-security").output().unwrap();
-        failed(output, "pull_request_target requires explicit opt-in");
+        failed(&output, "pull_request_target requires explicit opt-in");
         failed(
-            fixture
+            &fixture
                 .cli("workflow-security")
                 .arg("--allow-pull-request-target")
                 .output()
@@ -422,7 +422,7 @@ fn workflow_security_rejects_docker_tags_bad_yaml_and_empty_roots() {
             &format!("runs:\n  steps:\n    - uses: docker://{reference}\n"),
         );
         failed(
-            fixture.cli("workflow-security").output().unwrap(),
+            &fixture.cli("workflow-security").output().unwrap(),
             "Docker action must use a SHA-256 digest",
         );
     }
@@ -430,11 +430,11 @@ fn workflow_security_rejects_docker_tags_bad_yaml_and_empty_roots() {
     let fixture = Fixture::new();
     fixture.write(".github/workflows/test.yaml", "jobs: [unterminated\n");
     failed(
-        fixture.cli("workflow-security").output().unwrap(),
+        &fixture.cli("workflow-security").output().unwrap(),
         "invalid YAML",
     );
     failed(
-        Fixture::new().cli("workflow-security").output().unwrap(),
+        &Fixture::new().cli("workflow-security").output().unwrap(),
         "no workflow or action YAML",
     );
 }
@@ -575,7 +575,7 @@ fn pin_actions_rejects_dirty_or_untracked_runtime_inputs_before_writing() {
             fs::read_to_string(fixture.root().join(".github/workflows/test.yaml")).unwrap();
         fixture.write(path, "uncommitted runtime input\n");
         failed(
-            fixture.cli("pin-actions").arg(commit).output().unwrap(),
+            &fixture.cli("pin-actions").arg(commit).output().unwrap(),
             "Commit action, Rust and policy changes before pinning workflows",
         );
         assert_eq!(
@@ -592,7 +592,7 @@ fn pin_actions_selects_committed_snapshot_and_preserves_other_references() {
     fixture.write("src/main.rs", "fn main() { println!(\"new\"); }\n");
     let second = fixture.commit();
     failed(
-        fixture.cli("pin-actions").arg(&first).output().unwrap(),
+        &fixture.cli("pin-actions").arg(&first).output().unwrap(),
         "Commit action, Rust and policy changes before pinning workflows",
     );
     successful(fixture.cli("pin-actions").arg(&second).output().unwrap());
@@ -648,7 +648,7 @@ fn platform_matrix_deduplicates_and_rejects_artifact_collisions() {
         "default"
     );
     failed(
-        fixture
+        &fixture
             .cli("platform-matrix")
             .env("PLATFORMS", "linux/arm64,linux-arm64")
             .output()
@@ -656,7 +656,7 @@ fn platform_matrix_deduplicates_and_rejects_artifact_collisions() {
         "platform artifact names collide",
     );
     failed(
-        fixture
+        &fixture
             .cli("platform-matrix")
             .env("PLATFORMS", ",,,")
             .output()
@@ -705,7 +705,7 @@ fn pages_build_validates_assignments_and_passes_literal_values() {
     for assignment in ["MISSING_EQUALS", "1BAD=value", "BAD-NAME=value", "=value"] {
         let fixture = Fixture::new();
         failed(
-            fixture
+            &fixture
                 .recorder("pages-build")
                 .env("SCRIPT", "build")
                 .env("BUILD_ENV", assignment)
@@ -745,7 +745,7 @@ fn pages_build_validates_assignments_and_passes_literal_values() {
 fn node_checks_requires_a_script_and_preserves_execution_order_and_status() {
     let fixture = Fixture::new();
     failed(
-        fixture
+        &fixture
             .recorder("node-checks")
             .env("FORMAT_SCRIPT", "")
             .env("CHECK_SCRIPT", "")
