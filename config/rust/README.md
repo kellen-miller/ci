@@ -74,6 +74,7 @@ may lack options or lints and need an upgrade or a reviewed policy adjustment.
 | Readable control flow | `too_many_lines=250`, `cognitive_complexity=20`, nesting threshold 5 |
 | File size | When `clippy` is selected, tracked and nonignored untracked `.rs` files under handwritten workspace packages stay at or below 750 nonblank, noncomment code lines; multiline string contents, build scripts, tests, and fixtures count |
 | Exhaustive matches | Compiler requires exhaustive matches; wildcard arms intentionally cover other variants |
+| Ownership over cloning | `redundant_clone`, `implicit_clone`, `cloned_instead_of_copied`, `needless_pass_by_value`, `rc_mutex`; `clone_on_ref_ptr` requires `Arc::clone(&x)` so `.clone()` always marks a deep copy. Defaults in `all` already cover `unnecessary_to_owned`, `iter_cloned_collect`, and `ptr_arg` |
 | Restrict APIs | Configurable disallowed methods, types, and macros; no dependency-graph or module-boundary enforcement |
 | Unfinished code | `todo!()` and `unimplemented!()` checks; ordinary TODO comments need a separate check |
 | Consistent formatting | rustfmt, sorted imports, 100-column target, 60-column call and chain thresholds |

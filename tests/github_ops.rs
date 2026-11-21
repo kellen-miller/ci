@@ -87,11 +87,11 @@ impl Sandbox {
         self.directory.path()
     }
 
-    fn response(&self, method: &str, endpoint: &str, index: usize, response: Value) {
+    fn response(&self, method: &str, endpoint: &str, index: usize, response: &Value) {
         let key: String = endpoint.bytes().map(|byte| format!("{byte:02x}")).collect();
         fs::write(
             self.root().join(format!("{method}-{key}.{index}")),
-            serde_json::to_vec(&response).unwrap(),
+            serde_json::to_vec(response).unwrap(),
         )
         .unwrap();
     }
@@ -142,69 +142,69 @@ impl Sandbox {
             .collect()
     }
 
-    fn branch_fixture(&self, issues: Value) {
+    fn branch_fixture(&self, issues: &Value) {
         self.response(
             "POST",
             "graphql",
             0,
-            json!({"data":{"viewer":{"login":"ci[bot]"}}}),
+            &json!({"data":{"viewer":{"login":"ci[bot]"}}}),
         );
         self.response(
             "GET",
             "repos/example/project",
             0,
-            json!({"archived":false,"fork":false,"default_branch":"main"}),
+            &json!({"archived":false,"fork":false,"default_branch":"main"}),
         );
         self.response(
             "GET",
             "repos/example/project/issues?state=open&per_page=100",
             0,
-            json!([issues]),
+            &json!([issues]),
         );
-        self.response("GET", "repos/example/project/branches?per_page=100", 0, json!([[{"name":"main","protected":false,"commit":{"sha":"old"}},{"name":"protected","protected":true,"commit":{"sha":"old"}}],[{"name":"has-pr","protected":false,"commit":{"sha":"old"}},{"name":"stale/topic","protected":false,"commit":{"sha":"old"}},{"name":"fresh","protected":false,"commit":{"sha":"new"}}]]));
+        self.response("GET", "repos/example/project/branches?per_page=100", 0, &json!([[{"name":"main","protected":false,"commit":{"sha":"old"}},{"name":"protected","protected":true,"commit":{"sha":"old"}}],[{"name":"has-pr","protected":false,"commit":{"sha":"old"}},{"name":"stale/topic","protected":false,"commit":{"sha":"old"}},{"name":"fresh","protected":false,"commit":{"sha":"new"}}]]));
         self.response(
             "GET",
             "repos/example/project/pulls?state=open&head=example%3Ahas-pr",
             0,
-            json!([{}]),
+            &json!([{}]),
         );
         self.response(
             "GET",
             "repos/example/project/pulls?state=open&head=example%3Astale%2Ftopic",
             0,
-            json!([]),
+            &json!([]),
         );
         self.response(
             "GET",
             "repos/example/project/pulls?state=open&head=example%3Afresh",
             0,
-            json!([]),
+            &json!([]),
         );
         self.response(
             "GET",
             "repos/example/project/commits/old",
             0,
-            json!({"commit":{"committer":{"date":(Utc::now()-Duration::days(60)).to_rfc3339()}}}),
+            &json!({"commit":{"committer":{"date":(Utc::now()-Duration::days(60)).to_rfc3339()}}}),
         );
         self.response(
             "GET",
             "repos/example/project/commits/new",
             0,
-            json!({"commit":{"committer":{"date":Utc::now().to_rfc3339()}}}),
+            &json!({"commit":{"committer":{"date":Utc::now().to_rfc3339()}}}),
         );
-        self.response("POST", "repos/example/project/issues", 0, json!({}));
-        self.response("PATCH", "repos/example/project/issues/1", 0, json!({}));
+        self.response("POST", "repos/example/project/issues", 0, &json!({}));
+        self.response("PATCH", "repos/example/project/issues/1", 0, &json!({}));
         self.response(
             "GET",
             "repos/example/project/branches/stale%2Ftopic",
             0,
-            json!({"protected":false,"commit":{"sha":"old"}}),
+            &json!({"protected":false,"commit":{"sha":"old"}}),
         );
         self.response(
             "DELETE",
             "repos/example/project/git/refs/heads/stale%2Ftopic",
             0,
-            Value::Null,
+            &Value::Null,
         );
     }
 }
@@ -404,7 +404,7 @@ fn terraform_comment_updates_only_matching_bot_and_truncates() {
             "GET",
             "repos/example/project/issues/42/comments?per_page=100",
             0,
-            json!([[comments[0]], comments[1..].to_vec()]),
+            &json!([[comments[0]], comments[1..].to_vec()]),
         );
         sandbox.response(
             if update { "PATCH" } else { "POST" },
@@ -414,7 +414,7 @@ fn terraform_comment_updates_only_matching_bot_and_truncates() {
                 "repos/example/project/issues/42/comments"
             },
             0,
-            json!({}),
+            &json!({}),
         );
         successful(
             sandbox
@@ -438,7 +438,7 @@ fn terraform_comment_updates_only_matching_bot_and_truncates() {
 #[test]
 fn discovery_filters_installation_pages_and_configures_local_bot() {
     let sandbox = Sandbox::new();
-    sandbox.response("GET","/installation/repositories?per_page=100",0,json!([{"repositories":[{"owner":{"login":"example"},"archived":false,"fork":false,"full_name":"example/one"},{"owner":{"login":"other"},"archived":false,"fork":false,"full_name":"other/two"}]},{"repositories":[{"owner":{"login":"example"},"archived":true,"fork":false,"full_name":"example/archive"},{"owner":{"login":"example"},"archived":false,"fork":true,"full_name":"example/fork"},{"owner":{"login":"example"},"archived":false,"fork":false,"full_name":"example/three"}]}]));
+    sandbox.response("GET","/installation/repositories?per_page=100",0,&json!([{"repositories":[{"owner":{"login":"example"},"archived":false,"fork":false,"full_name":"example/one"},{"owner":{"login":"other"},"archived":false,"fork":false,"full_name":"other/two"}]},{"repositories":[{"owner":{"login":"example"},"archived":true,"fork":false,"full_name":"example/archive"},{"owner":{"login":"example"},"archived":false,"fork":true,"full_name":"example/fork"},{"owner":{"login":"example"},"archived":false,"fork":false,"full_name":"example/three"}]}]));
     successful(
         sandbox
             .command("discover-repositories")
@@ -458,7 +458,7 @@ fn discovery_filters_installation_pages_and_configures_local_bot() {
             .unwrap()
             .success()
     );
-    sandbox.response("GET", "users/my-app%5Bbot%5D", 0, json!({"id":123}));
+    sandbox.response("GET", "users/my-app%5Bbot%5D", 0, &json!({"id":123}));
     successful(
         sandbox
             .command("configure-bot")
@@ -482,7 +482,7 @@ fn discovery_filters_installation_pages_and_configures_local_bot() {
 #[test]
 fn branch_dry_run_has_no_writes_and_warns_only_stale_candidates() {
     let sandbox = Sandbox::new();
-    sandbox.branch_fixture(json!([]));
+    sandbox.branch_fixture(&json!([]));
     let output = successful(
         sandbox
             .command("stale-branch-cleanup")
@@ -525,7 +525,7 @@ fn branch_warning_is_owned_by_actor_and_preserves_warning_window() {
         json!([report("ci[bot]", 60, "changed")]),
     ] {
         let sandbox = Sandbox::new();
-        sandbox.branch_fixture(issues);
+        sandbox.branch_fixture(&issues);
         successful(
             sandbox
                 .command("stale-branch-cleanup")
@@ -548,13 +548,13 @@ fn branch_warning_is_owned_by_actor_and_preserves_warning_window() {
 fn branch_deletion_rechecks_tip_protection_and_open_prs() {
     for condition in ["unchanged", "changed", "protected", "new-pr"] {
         let sandbox = Sandbox::new();
-        sandbox.branch_fixture(json!([report("ci[bot]", 60, "old")]));
+        sandbox.branch_fixture(&json!([report("ci[bot]", 60, "old")]));
         if condition == "changed" {
             sandbox.response(
                 "GET",
                 "repos/example/project/branches/stale%2Ftopic",
                 0,
-                json!({"protected":false,"commit":{"sha":"new"}}),
+                &json!({"protected":false,"commit":{"sha":"new"}}),
             );
         }
 
@@ -563,7 +563,7 @@ fn branch_deletion_rechecks_tip_protection_and_open_prs() {
                 "GET",
                 "repos/example/project/branches/stale%2Ftopic",
                 0,
-                json!({"protected":true,"commit":{"sha":"old"}}),
+                &json!({"protected":true,"commit":{"sha":"old"}}),
             );
         }
 
@@ -572,7 +572,7 @@ fn branch_deletion_rechecks_tip_protection_and_open_prs() {
                 "GET",
                 "repos/example/project/pulls?state=open&head=example%3Astale%2Ftopic",
                 1,
-                json!([{}]),
+                &json!([{}]),
             );
         }
 
@@ -608,12 +608,12 @@ fn branch_deletion_rechecks_tip_protection_and_open_prs() {
 fn branches_skip_archives_and_forks_before_branch_or_issue_access() {
     for (archived, fork) in [(true, false), (false, true), (true, true)] {
         let sandbox = Sandbox::new();
-        sandbox.branch_fixture(json!([]));
+        sandbox.branch_fixture(&json!([]));
         sandbox.response(
             "GET",
             "repos/example/project",
             0,
-            json!({"archived":archived,"fork":fork}),
+            &json!({"archived":archived,"fork":fork}),
         );
         assert!(
             successful(
@@ -636,7 +636,7 @@ fn branches_fail_closed_for_duplicate_reports_or_bad_state() {
         json!([{"number":1,"user":{"login":"ci[bot]"},"body":"<!-- personal-ci-stale-branches:invalid -->"}]),
     ] {
         let sandbox = Sandbox::new();
-        sandbox.branch_fixture(issues);
+        sandbox.branch_fixture(&issues);
         assert!(
             !sandbox
                 .command("stale-branch-cleanup")
@@ -718,7 +718,7 @@ fn release_retries_transient_http_failure() {
 #[test]
 fn branch_dry_run_never_deletes_mature_warnings() {
     let sandbox = Sandbox::new();
-    sandbox.branch_fixture(json!([report("ci[bot]", 60, "old")]));
+    sandbox.branch_fixture(&json!([report("ci[bot]", 60, "old")]));
     assert!(
         successful(sandbox.command("stale-branch-cleanup").output().unwrap())
             .contains("DELETE example/project stale/topic (dry-run=true)")
@@ -736,7 +736,7 @@ fn branch_warning_keeps_timestamp_until_tip_changes() {
     for sha in ["old", "different"] {
         let sandbox = Sandbox::new();
         let issue = report("ci[bot]", 1, sha);
-        sandbox.branch_fixture(json!([issue]));
+        sandbox.branch_fixture(&json!([issue]));
         successful(
             sandbox
                 .command("stale-branch-cleanup")

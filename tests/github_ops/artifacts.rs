@@ -8,7 +8,7 @@ fn pr_artifact_run(id: u64, conclusion: &str) -> Value {
 }
 
 fn pr_build_fixture(sandbox: &Sandbox, include_image: bool) {
-    sandbox.response("GET", "repos/example/project/git/trees/tree?recursive=1", 0, json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"source","type":"blob"}]}));
+    sandbox.response("GET", "repos/example/project/git/trees/tree?recursive=1", 0, &json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"source","type":"blob"}]}));
     let mut artifacts = vec![
         json!({"id":1,"name":"pr-source-b5d24126dec10091c2cb3e66b4299792d3f28e079b639dde26f70304fc80ba46","expired":false,"workflow_run":{"id":1}}),
         json!({"id":2,"name":"package","expired":false,"workflow_run":{"id":1}}),
@@ -21,25 +21,25 @@ fn pr_build_fixture(sandbox: &Sandbox, include_image: bool) {
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=1",
         0,
-        json!({"artifacts":artifacts}),
+        &json!({"artifacts":artifacts}),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/1",
         0,
-        pr_artifact_run(1, "success"),
+        &pr_artifact_run(1, "success"),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/2",
         0,
-        pr_artifact_run(2, "success"),
+        &pr_artifact_run(2, "success"),
     );
     sandbox.response(
         "GET",
         "repos/example/project/git/commits/abc",
         0,
-        json!({"tree":{"sha":"tree"}}),
+        &json!({"tree":{"sha":"tree"}}),
     );
     fs::write(
         sandbox.root().join("event"),
@@ -103,25 +103,25 @@ fn cleanup_deletes_older_runs_but_preserves_outputs_from_partial_reruns() {
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=1",
         0,
-        json!({"artifacts":artifacts}),
+        &json!({"artifacts":artifacts}),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/1",
         0,
-        pr_artifact_run(1, "success"),
+        &pr_artifact_run(1, "success"),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/2",
         0,
-        pr_artifact_run(2, "success"),
+        &pr_artifact_run(2, "success"),
     );
     sandbox.response(
         "DELETE",
         "repos/example/project/actions/artifacts/1",
         0,
-        Value::Null,
+        &Value::Null,
     );
     successful(sandbox.command("pr-artifact-cleanup").output().unwrap());
     let deleted: Vec<_> = sandbox
@@ -143,25 +143,25 @@ fn cleanup_paginates_and_continues_when_an_artifact_was_already_deleted() {
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=1",
         0,
-        json!({"artifacts":artifacts}),
+        &json!({"artifacts":artifacts}),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=2",
         0,
-        json!({"artifacts":[{"id":101,"name":"package","expired":false,"workflow_run":{"id":2}}]}),
+        &json!({"artifacts":[{"id":101,"name":"package","expired":false,"workflow_run":{"id":2}}]}),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/1",
         0,
-        pr_artifact_run(1, "success"),
+        &pr_artifact_run(1, "success"),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/2",
         0,
-        pr_artifact_run(2, "success"),
+        &pr_artifact_run(2, "success"),
     );
     for id in 1..=100 {
         let endpoint = format!("repos/example/project/actions/artifacts/{id}");
@@ -169,7 +169,7 @@ fn cleanup_paginates_and_continues_when_an_artifact_was_already_deleted() {
             "DELETE",
             &endpoint,
             0,
-            if id == 1 {
+            &if id == 1 {
                 json!({"status":"404"})
             } else {
                 Value::Null
@@ -200,19 +200,19 @@ fn cleanup_removes_consumed_inputs_only_after_a_successful_final_upload() {
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=1",
         0,
-        json!({"artifacts":artifacts}),
+        &json!({"artifacts":artifacts}),
     );
     sandbox.response(
         "GET",
         "repos/example/project/actions/runs/2",
         0,
-        pr_artifact_run(2, "success"),
+        &pr_artifact_run(2, "success"),
     );
     sandbox.response(
         "DELETE",
         "repos/example/project/actions/artifacts/1",
         0,
-        Value::Null,
+        &Value::Null,
     );
     successful(
         sandbox
@@ -236,15 +236,15 @@ fn reuse_rejects_a_marker_forged_by_different_producer_inputs() {
     pr_build_fixture(&sandbox, true);
     let mut producer = pr_artifact_run(1, "success");
     producer["head_sha"] = json!("bad");
-    sandbox.response("GET", "repos/example/project/actions/runs/1", 0, producer);
+    sandbox.response("GET", "repos/example/project/actions/runs/1", 0, &producer);
     sandbox.response(
         "GET",
         "repos/example/project/git/commits/bad",
         0,
-        json!({"tree":{"sha":"bad-tree"}}),
+        &json!({"tree":{"sha":"bad-tree"}}),
     );
     sandbox.response("GET", "repos/example/project/git/trees/bad-tree?recursive=1", 0,
-        json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"tainted","type":"blob"}]}));
+        &json!({"truncated":false,"tree":[{"path":"Cargo.toml","mode":"100644","sha":"tainted","type":"blob"}]}));
     successful(
         sandbox
             .command("pr-artifact-build")
@@ -274,7 +274,7 @@ fn cleanup_resolves_the_target_pr_from_its_branch_after_a_stacked_merge() {
         "GET",
         "repos/example/project/actions/artifacts?per_page=100&page=1",
         0,
-        json!({"artifacts":artifacts}),
+        &json!({"artifacts":artifacts}),
     );
     for id in [1, 2] {
         let mut run = pr_artifact_run(id, "success");
@@ -283,18 +283,18 @@ fn cleanup_resolves_the_target_pr_from_its_branch_after_a_stacked_merge() {
             "GET",
             &format!("repos/example/project/actions/runs/{id}"),
             0,
-            run,
+            &run,
         );
     }
 
     sandbox.response("GET", "repos/example/project/pulls?state=all&head=example%3Afeature&per_page=100", 0,
-        json!([[{"number":7,"created_at":"2026-10-28T12:00:00Z","closed_at":"2026-10-30T12:00:00Z",
+        &json!([[{"number":7,"created_at":"2026-10-28T12:00:00Z","closed_at":"2026-10-30T12:00:00Z",
             "head":{"ref":"feature","repo":{"id":42}},"base":{"repo":{"full_name":"example/project"}}}]]));
     sandbox.response(
         "DELETE",
         "repos/example/project/actions/artifacts/1",
         0,
-        Value::Null,
+        &Value::Null,
     );
     successful(sandbox.command("pr-artifact-cleanup").output().unwrap());
     let deleted: Vec<_> = sandbox

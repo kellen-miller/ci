@@ -34,6 +34,15 @@ disallowed_methods = "warn"
 disallowed_types = "warn"
 disallowed_macros = "warn"
 
+# Ownership: fix borrow design instead of cloning around it. clone_on_ref_ptr
+# forces Arc::clone(&x), so a remaining .clone() always marks a deep copy.
+redundant_clone = "warn"
+implicit_clone = "warn"
+cloned_instead_of_copied = "warn"
+needless_pass_by_value = "warn"
+clone_on_ref_ptr = "warn"
+rc_mutex = "warn"
+
 # Small, explicit Rust-specific improvements.
 wildcard_imports = "warn"
 unused_async = "warn"
