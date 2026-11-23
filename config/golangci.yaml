@@ -278,7 +278,10 @@ linters:
         - status.Error
         - status.Errorf
         - (*google.golang.org/grpc/internal/status.Status).Err(
-        - go.temporal.io/sdk/temporal.NewNonRetryableApplicationError(
+        # Temporal reads an error's concrete type, so its constructors' results
+        # are returned as they are; wrapping one would lose the type.
+        - go.temporal.io/sdk/temporal.New
+        - go.temporal.io/sdk/workflow.NewContinueAsNewError(
   exclusions:
     generated: lax
     presets:
